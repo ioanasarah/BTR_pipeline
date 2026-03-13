@@ -1,0 +1,28 @@
+[project]
+name = "btr-pipeline-code"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "ioanasarah", email = "ioana.aizic@gmail.com"}
+]
+requires-python = ">=3.11,<3.14"
+dependencies = ["statsmodels (>=0.14.6,<0.15.0)"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.14"
+numpy = ">=2.0.0"
+spatialdata = ">=0.6.0"
+matchms = ">=0.14.0"
+matplotlib = ">=3.0.0"
+scikit-learn = ">=1.0.0"
+pandas = ">=2.0.0"
+umap-learn = ">=0.5.0"
+plotly = ">=5.0.0"
+scipy = ">=1.7.0"
