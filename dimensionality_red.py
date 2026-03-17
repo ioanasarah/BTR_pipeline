@@ -24,7 +24,7 @@ import threading
 
 results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
 preprocessing_run_name = "hippocampus_tic_omp"
-reduction_name = "kmeans_3_5x5_smoothing"
+reduction_name = "hdbscan_40min_5x5_smoothing"
 run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
 os.makedirs(run_folder, exist_ok=True)
 
@@ -510,7 +510,7 @@ if __name__ == "__main__":
     # umap_transformed = pd.read_csv(umap_file_path).iloc[:, :2].values
     # labels = pd.read_csv(umap_file_path).iloc[:, 2].values
     
-
+   
 
     umap_transformed = perform_umap(
         matrix_scaled, 
@@ -520,27 +520,30 @@ if __name__ == "__main__":
         metric='euclidean', #can change to cosine to be faster
         # random_state=42, 
         supervised=False)
+    
+    # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=, seed=42)
+    # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=20)
 
-    plot_elbow_method(umap_transformed, k_range=range(1, 8))
+    # plot_elbow_method(umap_transformed, k_range=range(1, 8))
 
 
-    kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
+    # kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
     # save_umap_results(
     #     umap_transformed,
     #     kmeans_labels,
     #     f"{run_folder}\\umap_results.csv"
     # )
-    # labels = hdbscan_clustering(matrix=umap_transformed, min_cluster_size=50, min_samples=None, cluster_selection_method='eom')
-    save_umap_results(umap_transformed, kmeans_labels, f"{run_folder}\\umap_results.csv")
+    labels = hdbscan_clustering(matrix=umap_transformed, min_cluster_size=40, min_samples=None, cluster_selection_method='eom')
+    save_umap_results(umap_transformed, labels, f"{run_folder}\\umap_results.csv")
 
     plot_umap_plotly(umap_transformed, 
-        labels=kmeans_labels,
+        labels=labels,
         title=f"Interactive UMAP Visualization - {reduction_name}", 
         save_html=f"{run_folder}\\umap_msi_{reduction_name}.html")
     
 
-    spatial_map = reconstruct_spatial_map(kmeans_labels, mask, original_shape)
-    # # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
+    spatial_map = reconstruct_spatial_map(labels, mask, original_shape)
+    # # # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
     plot_spatial_map(spatial_map, title=f"Mouse Brain MSI - {reduction_name}")
 
     
@@ -551,6 +554,5 @@ if __name__ == "__main__":
 
 
     
-    # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=100000, seed=42)
-    # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=10)
+
 

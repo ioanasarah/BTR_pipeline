@@ -9,7 +9,7 @@ import pandas as pd
 
 results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
 preprocessing_run_name = "hippocampus_tic_omp"
-reduction_name = "kmeans_5_no_smoothing"
+reduction_name = "hdbscan_700_000_5x5_smoothing"
 run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
 os.makedirs(run_folder, exist_ok=True)
 
