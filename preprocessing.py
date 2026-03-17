@@ -3,6 +3,8 @@ import time
 import numpy as np
 import spatialdata as sd
 # import spatialdata_plot  # noqa: F401
+import matplotlib
+matplotlib.use("Agg")  # Must be called **before importing pyplot**
 import matplotlib.pyplot as plt
 import matchms 
 from matchms import Spectrum
@@ -11,13 +13,13 @@ import pandas as pd
 import os
 import scipy.sparse
 from scipy.sparse import issparse
-import msiwarp as mw
+# import msiwarp as mw
 
 print("Loaded packages! Starting preprocessing...")
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-name_of_run = "implementing_hdbscan_with_omp_umap_no_smoothing"
-run_folder = os.path.join(results_folder, name_of_run)
+results_folder = r"C:\Users\i6338212\Documents\GitHub\BTR_pipeline\results" # change folder path as needed
+preprocessing_run_name = "xenium_tic_omp"
+run_folder = os.path.join(results_folder, preprocessing_run_name)
 os.makedirs(run_folder, exist_ok=True)
 
 start_time = time.perf_counter()
@@ -36,7 +38,8 @@ def compute_average_spectrum(
         ):
     
     print("computing average spectrum...")
-    data = spatial_data["MALDI-MSI_z0"]
+    # data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
+    data = spatial_data["msi_dataset_z0"]
     mz = data.var["mz"].values
     avg_intensity = data.uns["average_spectrum"] # unstructured annotation within anndata object
     # average intensity at each m/z across all pixels
@@ -135,12 +138,15 @@ def linear_recalibration(data, reference_mz, reference_intensity,
 
 
     total_pixels = data.shape[0] # number of spectra = pixels 
-
-    #only selecting a subsection of pixels to test on --> to change, set n_pixels to total pixels
-    max_pixels = 200 # set a maximum number of pixels to process for recalibration to save time (can adjust as needed)
-    n_pixels = min(max_pixels, total_pixels)
-    
     X = data.X # pixels by m/z bins
+
+    # #only selecting a subsection of pixels to test on --> to change, set n_pixels to total pixels
+    # max_pixels = 200 # set a maximum number of pixels to process for recalibration to save time (can adjust as needed)
+    # n_pixels = min(max_pixels, total_pixels)
+    nonzero_pixels = np.where(X.getnnz(axis=1) > 0)[0]
+    n_pixels = len(nonzero_pixels)
+    
+    
     corrected_rows = np.zeros((n_pixels, len(mz_axis)), dtype=np.float32) # initialize array to store corrected spectra for each pixel
     
     # checking shit 
@@ -148,14 +154,58 @@ def linear_recalibration(data, reference_mz, reference_intensity,
     # print("Total pixels:", data.shape[0])
 
     # selecting non-zero pixels to run subset 
-    nonzero_pixels = np.where(data.X.getnnz(axis=1) > 0)[0]
-    selected_pixels = nonzero_pixels[:n_pixels]
-    for i_idx, i in enumerate(selected_pixels):
+    # nonzero_pixels = np.where(data.X.getnnz(axis=1) > 0)[0]
+    # selected_pixels = nonzero_pixels[:n_pixels]
+    # for i_idx, i in enumerate(selected_pixels):
+    #     if i % 100 == 0:
+    #         print(f"Processed {i}/{n_pixels} pixels")
+
+    #     pixel = np.array(X[i].todense()).flatten() if issparse(X) else X[i] # get each pixel spectrum as a dense array
+    #     # print(pixel.max())
+    #     # 1D array of intensities for the current pixel
+        
+    #     measured_peaks = [] # observed m/z in pixel
+    #     reference_peaks = [] # expected m/z in reference
+        
+    #     for lm in landmark_mz:
+    #         # find the window around landmark in the pixel
+    #         window = np.abs(mz_axis - lm) < mz_tolerance # boolean mask for mz values within +/- tolerance of landmark
+    #         if window.sum() == 0:
+    #             continue # safety check - if no bins in the window then skip
+    #         local_intensities = pixel[window] # get intensities near the expected landmark 
+    #         if local_intensities.max() == 0:
+    #             continue  # if peak absent in this pixel
+            
+    #         # take the mz of the local maximum
+    #         local_mz = mz_axis[window] # first find index
+    #         measured_peaks.append(local_mz[np.argmax(local_intensities)]) # then get the mz value at the local max intensity
+    #         reference_peaks.append(lm) # store expected mz for this landmark peak
+    #         # have a matched pair (observed mz, expected mz) for this landmark in this pixel
+        
+    #     # at least two points are required to fit a line
+    #     if len(measured_peaks) < 2:
+    #         # corrected_rows.append(pixel)  # cant fit a line, leave spectrum uncorrected
+    #         corrected_rows[i] = pixel.astype(np.float32)
+    #         continue
+        
+    #     # fit linear correction: mz_true = a * mz_measured + b
+    #     a, b = np.polyfit(measured_peaks, reference_peaks, deg=1)
+    #     # print(a, b)
+    #     corrected_mz = a * mz_axis + b
+    #     # resample pixel onto original mz_axis grid --> go through this again 
+
+    
+    #     corrected_pixel = np.interp(mz_axis, corrected_mz, pixel)
+    #     corrected_rows[i_idx] = corrected_pixel.astype(np.float32) # store corrected spectrum for this pixel
+    
+
+# uncomment this for normal, all pixel analysis 
+    for i_idx, i in enumerate(nonzero_pixels): # iterate through pixels
         if i % 100 == 0:
             print(f"Processed {i}/{n_pixels} pixels")
 
         pixel = np.array(X[i].todense()).flatten() if issparse(X) else X[i] # get each pixel spectrum as a dense array
-        # print(pixel.max())
+        print(pixel.max())
         # 1D array of intensities for the current pixel
         
         measured_peaks = [] # observed m/z in pixel
@@ -190,51 +240,7 @@ def linear_recalibration(data, reference_mz, reference_intensity,
 
     
         corrected_pixel = np.interp(mz_axis, corrected_mz, pixel)
-        corrected_rows[i_idx] = corrected_pixel.astype(np.float32) # store corrected spectrum for this pixel
-    
-
-# uncomment this for normal, all pixel analysis 
-    # for i in range(n_pixels): # iterate through pixels
-        # if i % 100 == 0:
-        #     print(f"Processed {i}/{n_pixels} pixels")
-
-        # pixel = np.array(X[i].todense()).flatten() if issparse(X) else X[i] # get each pixel spectrum as a dense array
-        # print(pixel.max())
-        # # 1D array of intensities for the current pixel
-        
-        # measured_peaks = [] # observed m/z in pixel
-        # reference_peaks = [] # expected m/z in reference
-        
-        # for lm in landmark_mz:
-        #     # find the window around landmark in the pixel
-        #     window = np.abs(mz_axis - lm) < mz_tolerance # boolean mask for mz values within +/- tolerance of landmark
-        #     if window.sum() == 0:
-        #         continue # safety check - if no bins in the window then skip
-        #     local_intensities = pixel[window] # get intensities near the expected landmark 
-        #     if local_intensities.max() == 0:
-        #         continue  # if peak absent in this pixel
-            
-        #     # take the mz of the local maximum
-        #     local_mz = mz_axis[window] # first find index
-        #     measured_peaks.append(local_mz[np.argmax(local_intensities)]) # then get the mz value at the local max intensity
-        #     reference_peaks.append(lm) # store expected mz for this landmark peak
-        #     # have a matched pair (observed mz, expected mz) for this landmark in this pixel
-        
-        # # at least two points are required to fit a line
-        # if len(measured_peaks) < 2:
-        #     # corrected_rows.append(pixel)  # cant fit a line, leave spectrum uncorrected
-        #     corrected_rows[i] = pixel.astype(np.float32)
-        #     continue
-        
-        # # fit linear correction: mz_true = a * mz_measured + b
-        # a, b = np.polyfit(measured_peaks, reference_peaks, deg=1)
-        # print(a, b)
-        # corrected_mz = a * mz_axis + b
-        # # resample pixel onto original mz_axis grid --> go through this again 
-
-    
-        # corrected_pixel = np.interp(mz_axis, corrected_mz, pixel)
-        # corrected_rows[i] = corrected_pixel.astype(np.float32) # store corrected spectrum for this pixel
+        corrected_rows[i] = corrected_pixel.astype(np.float32) # store corrected spectrum for this pixel
     
 
     #  save corrected spectra as a new AnnData object or overwrite existing one
@@ -420,17 +426,18 @@ def filtering(
 def tic_normalization(filtered_spectra: np.ndarray, 
                       target: float = 1.0):
     print("performing TIC normalization...")
-    tic = filtered_spectra.sum(axis=1, keepdims = True) # total ion current for each spectrum / for each pixel
+    tic = filtered_spectra.sum(axis=1) # total ion current for each spectrum / for each pixel
     tic = np.where(tic == 0, 1, tic) # avoid division by zero
-    normalized_matrix = (filtered_spectra / tic) * target # divide each spectrum by its TIC to normalize for differences in total intensity between spectra
+    normalised_matrix = (filtered_spectra / tic) * target # divide each spectrum by its TIC to normalize for differences in total intensity between spectra
     
     # TIC should be aprox 1.0 for all non-zero pixels
-    non_zero_tics = normalized_matrix.sum(axis=1)
+    non_zero_tics = normalised_matrix.sum(axis=1)
     non_zero_tics = non_zero_tics[non_zero_tics > 0]
-    
+    np.save(f"{run_folder}\\normalised_matrix.npy", normalised_matrix)
     print(f"Post-normalisation TIC — mean: {non_zero_tics.mean():.4f}, std: {non_zero_tics.std():.6f}")
     print(f"TIC normalization complete in {time.perf_counter() - start_time:.2f} seconds")
-    return normalized_matrix
+    
+    return normalised_matrix
 
 def reshaping_to_3d_matrix(
         data, 
@@ -459,11 +466,13 @@ def reshaping_to_3d_matrix(
 
 
 if __name__ == "__main__":
-    zarr_path = r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr"
+    zarr_path = r"C:\Users\i6338212\data\Ioana Test Data\Data\xenium.zarr"
     spatial_data = reading_data(zarr_path)
     AnnData, mz, avg_intensity, average_spectrum = compute_average_spectrum(spatial_data)
     print(f"data type: {type(AnnData)}, mz type: {type(mz)}, avg_intensity type: {type(avg_intensity)}")
-    # shift = check_mass_drift(AnnData)
+    shift = check_mass_drift(AnnData, n_pixels=1000)
+
+    # aligned_matrix, mz_axis = linear_recalibration(AnnData, mz, avg_intensity)
 
     # aligned_matrix, mz = linear_recalibration(AnnData, mz, avg_intensity)
     # print(f"data type after recalibration: {type(aligned_matrix)}, mz type: {type(mz)}")
@@ -474,18 +483,18 @@ if __name__ == "__main__":
     # avg_intensity = aligned_matrix.mean(axis=0)
     # print(f"Average intensity after recalibration: {avg_intensity[:10]}") # print first 10 values to check")
 
-    # peak_mz, peak_intensities = peak_detection_omp(mz, avg_intensity, non_zero_coefs=700)
-    peak_mz_mad, peak_intensities_mad = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
+    peak_mz, peak_intensities = peak_detection_omp(mz, avg_intensity, non_zero_coefs=700)
+    # peak_mz_mad, peak_intensities_mad = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
     # print(f"mz data type: {type(mz)}")
     # # print("Average spectrum m/z values:", mz)
     # print("Mean difference between adjacent m/z values:", np.diff(mz).mean())
-    pd.DataFrame({"mz": peak_mz_mad}).to_csv(f"{run_folder}\\peak_mz_values.csv", index=False)
+    pd.DataFrame({"mz": peak_mz}).to_csv(f"{run_folder}\\peak_mz_values.csv", index=False)
 
-    bins = peak_binning(peak_mz_mad)
+    bins = peak_binning(peak_mz, tolerance=0.005)
     pd.DataFrame({"mz": bins}).to_csv(f"{run_folder}\\binned_mz_values.csv", index=False)
     print(f"Binned m/z values saved to {run_folder}\\binned_mz_values.csv")
 
-    pooled_spectra, pooled_mz = pooling(aligned_matrix=aligned_matrix, mz_recalibrated=mz, bins=bins)
+    pooled_spectra, pooled_mz = pooling(aligned_matrix=AnnData.X, mz_recalibrated=mz, bins=bins)
     presence, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz)
     pd.DataFrame({"mz": filtered_mz}).to_csv(
         f"{run_folder}\\filtered_mz_values.csv",
@@ -493,52 +502,12 @@ if __name__ == "__main__":
     )
     print(f"Filtered m/z values saved to {run_folder}\\filtered_mz_values.csv")
 
+    normalised_matix = tic_normalization(filtered_spectra)
+    if issparse(normalised_matix):
+        normalised_matix = normalised_matix.toarray()
 
 
-
-
-
-
-
-
-
-
-
-# print("Detected peaks:", len(peak_mz))
-
-# print("After binning:", len(bins))
-
-# presence, filtered_spectra = filtering(pooled_spectra)
-# print("After filtering:", filtered_spectra.shape[1])
-
-
-
-# non_zero_coefs = 700
-# peak_mz, peak_intensities = peak_detection_omp(mz, avg_intensity, non_zero_coefs=non_zero_coefs)
-# # peak_mz, peak_intensities = peak_detection_mad(mz, avg_intensity)
-
-# # save mz values in csv
-
-# bins = peak_binning(peak_mz)
-# pooled_spectra = pooling(data, bins)
-# # print("Pooled shape:", pooled_spectra.shape)
-# presence, filtered_spectra = filtering(pooled_spectra)
-# # plt.hist(presence, bins=161)
-# # plt.show()
-# # print("Nonzeros:", np.count_nonzero(filtered_spectra.toarray()))
-# # print("Filtered shape:", filtered_spectra.shape)
-# # print("Nonzero elements:", filtered_spectra.nnz)
-# # print(data.obs[["x","y"]].head(20))
-
-# # find index of the peak with intnesity 647.46 in the average spectrum
-# # target_mz = 647.47
-# # peak_idx = np.argmin(np.abs(bins - target_mz))
-# # print("Closest peak to target m/z:", bins[peak_idx], "at index", peak_idx)
-
-
-
-
-matrix = reshaping_to_3d_matrix(AnnData, filtered_spectra)
+    matrix = reshaping_to_3d_matrix(AnnData, normalised_matix)
 # # print("Nonzeros:", np.count_nonzero(matrix))
 # plt.imshow(matrix[:, :, 94], cmap="hot", interpolation="nearest") # visualize the ion image for the peak at index 98 (closest to 647.47 m/z)
 # plt.colorbar()
@@ -546,7 +515,7 @@ matrix = reshaping_to_3d_matrix(AnnData, filtered_spectra)
 # plt.show()
 # print(np.max(matrix[:, :, 0]))
 
-np.save("msi_matrix_omp.npy", matrix)
+    np.save("msi_matrix_omp.npy", matrix)
 
 
 # # Reshaping to 3D matrix with dimensions: (1469, 1007, 142)

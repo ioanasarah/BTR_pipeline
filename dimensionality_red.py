@@ -20,9 +20,10 @@ from statsmodels.stats.multitest import multipletests
 import threading
 
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
-name_of_run = "k8_kmeans++_omp"
-run_folder = os.path.join(results_folder, name_of_run)
+results_folder = r"C:\Users\i6338212\Documents\GitHub\BTR_pipeline\results" # change folder path as needed
+preprocessing_run_name = "xenium_tic_omp"
+reduction_name = "kmeans_5_no_smoothing"
+run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
 os.makedirs(run_folder, exist_ok=True)
 
 start_time = time.perf_counter()
@@ -410,13 +411,13 @@ def reconstruct_spatial_map(labels:pd.Series,
 
     # mask is boolean array which indicates which pixels are non-zero (from preprocessing)
     reconstructed_map = spatial_map.reshape(height, width) # reshape back to original image dimensions
-    np.save(f"{run_folder}\\spatial_map_matrix_{name_of_run}.npy", reconstructed_map)
+    np.save(f"{run_folder}\\spatial_map_matrix_{reduction_name}.npy", reconstructed_map)
     print("Spatial map reconstruction complete. Took {:.2f} seconds".format(time.perf_counter() - start_time))
     # reshape converts 1d array into 2d grid which now has bg and actual image of sample
     return reconstructed_map
 
 def plot_spatial_map(spatial_map: np.ndarray,
-                     title: str = name_of_run):
+                     title: str = reduction_name):
     print( "Plotting spatial map of clusters...")
     fig, ax = plt.subplots(figsize=(10, 8))
 
@@ -446,9 +447,9 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range) -> None:
     plt.xlabel("Number of clusters (k)")
     plt.ylabel("Inertia")
     plt.title("Elbow Method for Optimal k")
-    plt.savefig(f"{run_folder}\\{name_of_run}_elbow_method.png")
+    plt.savefig(f"{run_folder}\\{reduction_name}_elbow_method.png")
     plt.show()
-    print(f"Elbow method plot saved to {run_folder}\\{name_of_run}_elbow_method.png. Took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Elbow method plot saved to {run_folder}\\{reduction_name}_elbow_method.png. Took {time.perf_counter() - start_time:.2f} seconds")
 
 # umap_transformed = perform_umap(
 #     matrix_scaled, 
@@ -505,7 +506,7 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range) -> None:
 
 if __name__ == "__main__":
     # run_timer(stop_event)
-    file_path = r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy"
+    file_path = r"C:\Users\i6338212\Documents\GitHub\BTR_pipeline\results\xenium_tic_omp\normalised_matrix.npy"
     matrix_scaled, mask, original_shape = load_and_preprocess_msi(file_path=file_path, 
                                                               remove_zero_pixels=True,
                                                               save_raw=f"{run_folder}\\matrix_raw.npy",
@@ -528,7 +529,7 @@ if __name__ == "__main__":
     # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=10)
 
 
-    kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=8, random_state=42, n_init=10, init='k-means++')
+    kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=5, random_state=42, n_init=10, init='k-means++')
     save_umap_results(
         umap_transformed,
         kmeans_labels,
@@ -545,7 +546,7 @@ if __name__ == "__main__":
 
     spatial_map = reconstruct_spatial_map(kmeans_labels, mask, original_shape)
     # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
-    plot_spatial_map(spatial_map, title=f"Mouse Brain MSI - {name_of_run}")
+    plot_spatial_map(spatial_map, title=f"Mouse Brain MSI - {reduction_name}")
 
     
     # umap_file_path=r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\umap_kmeans_k2_5x5_smoothing.csv"
