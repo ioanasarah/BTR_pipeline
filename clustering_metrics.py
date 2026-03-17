@@ -6,10 +6,13 @@ import numpy as np
 import pandas as pd
 
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
-name_of_run = "k8_kmeans++_omp"
-run_folder = os.path.join(results_folder, name_of_run)
+
+results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
+preprocessing_run_name = "hippocampus_tic_omp"
+reduction_name = "kmeans_5_no_smoothing"
+run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
 os.makedirs(run_folder, exist_ok=True)
+
 
 start_time = time.perf_counter()
 
@@ -57,7 +60,7 @@ def percentage_abnormal_edge_pixels(spatial_map) -> float:
     return paep
 
 
-spatial_map_file_path = f"{run_folder}\\spatial_map_matrix_{name_of_run}.npy"
+spatial_map_file_path = f"{run_folder}\\spatial_map_matrix_{reduction_name}.npy"
 spatial_map = np.load(spatial_map_file_path)
 paep = percentage_abnormal_edge_pixels(spatial_map)
     
@@ -68,12 +71,13 @@ davies_bouldin_avg = davies_bouldin_score(umap_embeddings, labels)
 calinski_harabasz_avg = calinski_harabasz_score(umap_embeddings, labels)
 # rand_score = rand_score(labels, labels) # need ground truth labels for this
 # print(f"Silhouette Score: {silhouette_avg:.4f}")
+
 print(f"Davies-Bouldin Score: {davies_bouldin_avg:.4f}")
 print(f"Calinski-Harabasz Score: {calinski_harabasz_avg:.4f}")
 # print("Clustering metrics calculated in {:.2f} seconds".format(time.perf_counter() - start_time))
 
 # save metrics to a text file
-with open(f"{run_folder}/clustering_metrics_{name_of_run}.txt", "w") as f:
+with open(f"{run_folder}/clustering_metrics_{reduction_name}.txt", "w") as f:
     # f.write(f"Silhouette Score: {silhouette_avg:.4f}\n")
     f.write(f"Davies-Bouldin Score: {davies_bouldin_avg:.4f}\n")
     f.write(f"Calinski-Harabasz Score: {calinski_harabasz_avg:.4f}\n")

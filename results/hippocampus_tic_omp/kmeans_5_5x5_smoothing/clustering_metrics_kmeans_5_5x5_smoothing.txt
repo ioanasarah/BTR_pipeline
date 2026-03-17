@@ -1,0 +1,4 @@
+Davies-Bouldin Score: 0.8362
+Calinski-Harabasz Score: 148629.9897
+Percentage of abnormal edge pixels: 45.2217
+%

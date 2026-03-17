@@ -8,6 +8,8 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import os
 import umap
+import matplotlib
+matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
@@ -20,9 +22,9 @@ from statsmodels.stats.multitest import multipletests
 import threading
 
 
-results_folder = r"C:\Users\i6338212\Documents\GitHub\BTR_pipeline\results" # change folder path as needed
-preprocessing_run_name = "xenium_tic_omp"
-reduction_name = "kmeans_5_no_smoothing"
+results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
+preprocessing_run_name = "hippocampus_tic_omp"
+reduction_name = "kmeans_3_5x5_smoothing"
 run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
 os.makedirs(run_folder, exist_ok=True)
 
@@ -51,29 +53,18 @@ def load_and_preprocess_msi(
     save_raw: Optional[str] = None,
     save_scaled: Optional[str] = None
 ) -> Tuple[np.ndarray, np.ndarray, Tuple[int, int]]: 
-    """
-    Load and preprocess MSI matrix saved as .npy
-    
-    Args:
-        file_path: Path to .npy file (flattened matrix or 3D matrix)
-        remove_zero_pixels: Whether to remove pixels with zero intensity
-        
-    Returns:
-        Tuple containing:
-        - scaled feature matrix (X_scaled)
-        - mask of kept pixels (for spatial reconstruction)
-    """
+
     
     # Load matrix
-    matrix = np.load(file_path) # should be in npy format 
+    matrix = np.load(file_path, allow_pickle=True) # should be in npy format 
     original_shape = (matrix.shape[0], matrix.shape[1]) if matrix.ndim == 3 else None
     print(f"Loaded matrix shape: {matrix.shape}")
     
     # # apply spatial smoothing 
     # if matrix.ndim == 3:
     #     matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1])
-        # averages each pixel's spectrum with its neighbors
-        # 3×3 pixel window spatially but no smoothing across the m/z dimension
+    #     # averages each pixel's spectrum with its neighbors
+    #     # 3×3 pixel window spatially but no smoothing across the m/z dimension
 
     # rehsape 3d matrix
     if matrix.ndim == 3:
@@ -90,6 +81,8 @@ def load_and_preprocess_msi(
         print(f"Shape after removing zero pixels: {X.shape}")
     else:
         mask = None
+
+    X = uniform_filter(X.astype(float), size=[5, 5])
 
     if save_raw:
         np.save(save_raw, X)
@@ -506,7 +499,7 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range) -> None:
 
 if __name__ == "__main__":
     # run_timer(stop_event)
-    file_path = r"C:\Users\i6338212\Documents\GitHub\BTR_pipeline\results\xenium_tic_omp\normalised_matrix.npy"
+    file_path = r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy"
     matrix_scaled, mask, original_shape = load_and_preprocess_msi(file_path=file_path, 
                                                               remove_zero_pixels=True,
                                                               save_raw=f"{run_folder}\\matrix_raw.npy",
@@ -516,6 +509,9 @@ if __name__ == "__main__":
     # umap_file_path = f"{run_folder}\\umap_results.csv"
     # umap_transformed = pd.read_csv(umap_file_path).iloc[:, :2].values
     # labels = pd.read_csv(umap_file_path).iloc[:, 2].values
+    
+
+
     umap_transformed = perform_umap(
         matrix_scaled, 
         n_neighbors=15, 
@@ -524,35 +520,37 @@ if __name__ == "__main__":
         metric='euclidean', #can change to cosine to be faster
         # random_state=42, 
         supervised=False)
-    
-    # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=100000, seed=42)
-    # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=10)
+
+    plot_elbow_method(umap_transformed, k_range=range(1, 8))
 
 
-    kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=5, random_state=42, n_init=10, init='k-means++')
-    save_umap_results(
-        umap_transformed,
-        kmeans_labels,
-        f"{run_folder}\\umap_results.csv"
-    )
-    # labels = hdbscan_clustering(matrix=umap_transformed, min_cluster_size=10, min_samples=None, cluster_selection_method='eom')
-    # save_umap_results(embedding_sub, labels_sub, f"{run_folder}\\umap_hdbscan_results.csv")
+    kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
+    # save_umap_results(
+    #     umap_transformed,
+    #     kmeans_labels,
+    #     f"{run_folder}\\umap_results.csv"
+    # )
+    # labels = hdbscan_clustering(matrix=umap_transformed, min_cluster_size=50, min_samples=None, cluster_selection_method='eom')
+    save_umap_results(umap_transformed, kmeans_labels, f"{run_folder}\\umap_results.csv")
 
-    # plot_umap_plotly(embedding_sub, 
-    #     labels=labels_sub,
-    #     title="Interactive UMAP Visualization with HDBSCAN Clusters", 
-    #     save_html=f"{run_folder}\\umap_msi_{name_of_run}.html")
+    plot_umap_plotly(umap_transformed, 
+        labels=kmeans_labels,
+        title=f"Interactive UMAP Visualization - {reduction_name}", 
+        save_html=f"{run_folder}\\umap_msi_{reduction_name}.html")
     
 
     spatial_map = reconstruct_spatial_map(kmeans_labels, mask, original_shape)
-    # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
+    # # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
     plot_spatial_map(spatial_map, title=f"Mouse Brain MSI - {reduction_name}")
 
     
     # umap_file_path=r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\umap_kmeans_k2_5x5_smoothing.csv"
     # umap_transformed = pd.read_csv(umap_file_path)
-    # plot_elbow_method(umap_transformed, k_range=range(1, 10))
-    # stop_event.set()
-    # timer_thread.join()
+
     print("Dimensionality reduction and clustering pipeline complete. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
+
+
+    
+    # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=100000, seed=42)
+    # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=10)
 

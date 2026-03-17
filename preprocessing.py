@@ -4,7 +4,7 @@ import numpy as np
 import spatialdata as sd
 # import spatialdata_plot  # noqa: F401
 import matplotlib
-matplotlib.use("Agg")  # Must be called **before importing pyplot**
+matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
 import matchms 
 from matchms import Spectrum
@@ -17,8 +17,8 @@ from scipy.sparse import issparse
 
 print("Loaded packages! Starting preprocessing...")
 
-results_folder = r"C:\Users\i6338212\Documents\GitHub\BTR_pipeline\results" # change folder path as needed
-preprocessing_run_name = "xenium_tic_omp"
+results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
+preprocessing_run_name = "hippocampus_tic_omp"
 run_folder = os.path.join(results_folder, preprocessing_run_name)
 os.makedirs(run_folder, exist_ok=True)
 
@@ -466,7 +466,8 @@ def reshaping_to_3d_matrix(
 
 
 if __name__ == "__main__":
-    zarr_path = r"C:\Users\i6338212\data\Ioana Test Data\Data\xenium.zarr"
+    # zarr_path = r"C:\Users\i6338212\data\Ioana Test Data\Data\xenium.zarr"
+    zarr_path=r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr"
     spatial_data = reading_data(zarr_path)
     AnnData, mz, avg_intensity, average_spectrum = compute_average_spectrum(spatial_data)
     print(f"data type: {type(AnnData)}, mz type: {type(mz)}, avg_intensity type: {type(avg_intensity)}")
@@ -515,7 +516,7 @@ if __name__ == "__main__":
 # plt.show()
 # print(np.max(matrix[:, :, 0]))
 
-    np.save("msi_matrix_omp.npy", matrix)
+    np.save("msi_matrix.npy", matrix)
 
 
 # # Reshaping to 3D matrix with dimensions: (1469, 1007, 142)
