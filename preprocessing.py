@@ -11,11 +11,12 @@ import pandas as pd
 import os
 import scipy.sparse
 from scipy.sparse import issparse
+import msiwarp as mw
 
 print("Loaded packages! Starting preprocessing...")
 
 results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-name_of_run = "trying_linear_recalibration"
+name_of_run = "implementing_hdbscan_with_omp_umap_no_smoothing"
 run_folder = os.path.join(results_folder, name_of_run)
 os.makedirs(run_folder, exist_ok=True)
 
@@ -249,6 +250,25 @@ def linear_recalibration(data, reference_mz, reference_intensity,
     print(f"Linear recalibration completed in {time.perf_counter() - start_time:.2f} seconds")
     return aligned_matrix, mz_axis
 
+
+
+def msiwarp_recalibration(data, reference_mz, reference_intensity):
+    spectra =  ... # code to load the unaligned spectra
+    reference_spectrum =  ... 
+
+    # setup the node placement parameters
+    params = mw.params_uniform(...)
+    epsilon = 1.0 # peak matching threshold, relative to peak width
+    n_cores = 4
+
+    # find an m/z recalibration function for each spectrum
+    recal_funcs = mw.find_optimal_warpings_uni(spectra, reference_spectrum, params, epsilon, n_cores)
+
+    # use the recalibration functions to warp the spectra
+    warped_spectra = [mx.warp_peaks_unique(s_i, r_i) for (s_i, r_i) in zip(spectra, recal_funcs)]
+
+# ... code to store the warped spectra
+
 def peak_detection_mad(
         mz, 
         avg_intensity, 
@@ -397,6 +417,21 @@ def filtering(
     return presence, filtered_spectra, filtered_mz
 
 
+def tic_normalization(filtered_spectra: np.ndarray, 
+                      target: float = 1.0):
+    print("performing TIC normalization...")
+    tic = filtered_spectra.sum(axis=1, keepdims = True) # total ion current for each spectrum / for each pixel
+    tic = np.where(tic == 0, 1, tic) # avoid division by zero
+    normalized_matrix = (filtered_spectra / tic) * target # divide each spectrum by its TIC to normalize for differences in total intensity between spectra
+    
+    # TIC should be aprox 1.0 for all non-zero pixels
+    non_zero_tics = normalized_matrix.sum(axis=1)
+    non_zero_tics = non_zero_tics[non_zero_tics > 0]
+    
+    print(f"Post-normalisation TIC — mean: {non_zero_tics.mean():.4f}, std: {non_zero_tics.std():.6f}")
+    print(f"TIC normalization complete in {time.perf_counter() - start_time:.2f} seconds")
+    return normalized_matrix
+
 def reshaping_to_3d_matrix(
         data, 
         filtered_spectra
@@ -430,22 +465,23 @@ if __name__ == "__main__":
     print(f"data type: {type(AnnData)}, mz type: {type(mz)}, avg_intensity type: {type(avg_intensity)}")
     # shift = check_mass_drift(AnnData)
 
-    aligned_matrix, mz = linear_recalibration(AnnData, mz, avg_intensity)
-    print(f"data type after recalibration: {type(aligned_matrix)}, mz type: {type(mz)}")
-    # print first 10 values of aligned matrix and mz to check
-    print("First 10 m/z values after recalibration:", mz[:10])
-    print("First 10 intensity values of the first pixel after recalibration:", aligned_matrix[0, :10])
-    # recompute average on aigned spectra
-    avg_intensity = aligned_matrix.mean(axis=0)
-    print(f"Average intensity after recalibration: {avg_intensity[:10]}") # print first 10 values to check")
+    # aligned_matrix, mz = linear_recalibration(AnnData, mz, avg_intensity)
+    # print(f"data type after recalibration: {type(aligned_matrix)}, mz type: {type(mz)}")
+    # # print first 10 values of aligned matrix and mz to check
+    # print("First 10 m/z values after recalibration:", mz[:10])
+    # print("First 10 intensity values of the first pixel after recalibration:", aligned_matrix[0, :10])
+    # # recompute average on aigned spectra
+    # avg_intensity = aligned_matrix.mean(axis=0)
+    # print(f"Average intensity after recalibration: {avg_intensity[:10]}") # print first 10 values to check")
 
-    peak_mz, peak_intensities = peak_detection_omp(mz, avg_intensity, non_zero_coefs=700)
+    # peak_mz, peak_intensities = peak_detection_omp(mz, avg_intensity, non_zero_coefs=700)
+    peak_mz_mad, peak_intensities_mad = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
     # print(f"mz data type: {type(mz)}")
     # # print("Average spectrum m/z values:", mz)
     # print("Mean difference between adjacent m/z values:", np.diff(mz).mean())
-    pd.DataFrame({"mz": peak_mz}).to_csv(f"{run_folder}\\peak_mz_values.csv", index=False)
+    pd.DataFrame({"mz": peak_mz_mad}).to_csv(f"{run_folder}\\peak_mz_values.csv", index=False)
 
-    bins = peak_binning(peak_mz)
+    bins = peak_binning(peak_mz_mad)
     pd.DataFrame({"mz": bins}).to_csv(f"{run_folder}\\binned_mz_values.csv", index=False)
     print(f"Binned m/z values saved to {run_folder}\\binned_mz_values.csv")
 
@@ -502,7 +538,7 @@ if __name__ == "__main__":
 
 
 
-# matrix = reshaping_to_3d_matrix(data, filtered_spectra)
+matrix = reshaping_to_3d_matrix(AnnData, filtered_spectra)
 # # print("Nonzeros:", np.count_nonzero(matrix))
 # plt.imshow(matrix[:, :, 94], cmap="hot", interpolation="nearest") # visualize the ion image for the peak at index 98 (closest to 647.47 m/z)
 # plt.colorbar()
@@ -510,7 +546,7 @@ if __name__ == "__main__":
 # plt.show()
 # print(np.max(matrix[:, :, 0]))
 
-# np.save("msi_matrix_omp.npy", matrix)
+np.save("msi_matrix_omp.npy", matrix)
 
 
 # # Reshaping to 3D matrix with dimensions: (1469, 1007, 142)

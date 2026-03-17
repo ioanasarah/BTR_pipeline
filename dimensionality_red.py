@@ -1,6 +1,7 @@
 import time
 from typing import Tuple, Optional
 import numpy as np
+# import scikit-learn as sklearn
 from sklearn.preprocessing import StandardScaler
 # import umap-learn 
 # from Usia.dimensionality_reduction.umap import perform_umap
@@ -11,19 +12,37 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 import sklearn 
-from sklearn.cluster import KMeans, SpectralClustering
+from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, HDBSCAN
 from scipy.ndimage import uniform_filter 
 from scipy.stats import f_oneway
 import statsmodels
 from statsmodels.stats.multitest import multipletests
+import threading
 
 
 results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
-name_of_run = "k8_kmeans++_5x5_smoothing_omp"
+name_of_run = "k8_kmeans++_omp"
 run_folder = os.path.join(results_folder, name_of_run)
 os.makedirs(run_folder, exist_ok=True)
 
 start_time = time.perf_counter()
+
+print("Loaded packages! Starting dimensionality reduction...")
+
+# def run_timer(stop_event):
+#     start = time.time()
+#     while not stop_event.is_set():
+#         elapsed = time.time() - start
+#         mins, secs = divmod(int(elapsed), 60)
+#         hrs, mins = divmod(mins, 60)
+#         print(f"\r Elapsed: {hrs:02d}:{mins:02d}:{secs:02d}", end="", flush=True)
+#         time.sleep(1)
+#     print()
+
+# stop_event = threading.Event()
+# timer_thread = threading.Thread(target=run_timer, args=(stop_event,), daemon=True)
+# timer_thread.start()
+
 
 def load_and_preprocess_msi(
     file_path: str,
@@ -50,8 +69,8 @@ def load_and_preprocess_msi(
     print(f"Loaded matrix shape: {matrix.shape}")
     
     # # apply spatial smoothing 
-    if matrix.ndim == 3:
-        matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1])
+    # if matrix.ndim == 3:
+    #     matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1])
         # averages each pixel's spectrum with its neighbors
         # 3×3 pixel window spatially but no smoothing across the m/z dimension
 
@@ -86,6 +105,12 @@ def load_and_preprocess_msi(
     print(f"Scaling completed in {time.perf_counter() - start_time:.2f} seconds")
     
     return X_scaled, mask, original_shape
+
+
+def subset_matrix(matrix: np.ndarray, subset_size: int = 50_000, seed: int = 42) -> np.ndarray:
+    rng = np.random.default_rng(seed) # using seed to get the same random subset each time for reproducibility
+    idx = rng.choice(matrix.shape[0], size=subset_size, replace=False)
+    return matrix[idx], idx  
 
 
 
@@ -353,19 +378,42 @@ def spectral_clustering(matrix: np.ndarray,
     return pd.Series(labels_all)
 
 
+
+def hdbscan_clustering(matrix: np.ndarray,
+                       min_cluster_size: int = 10, # minimum number of samples in a group for that group to be considered a cluster
+                        min_samples: Optional[int] = None,
+                        cluster_selection_method: str = 'eom') -> pd.Series: 
+    # eom = excess of mass, selects clusters based on stability
+    print("Performing HDBSCAN clustering...")
+    hdbscan_labels = HDBSCAN(
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        cluster_selection_method=cluster_selection_method
+        # core_dist_n_jobs=-1
+    )
+    labels = hdbscan_labels.fit_predict(matrix)
+    print(f"HDBSCAN clustering complete. Found {len(np.unique(labels[labels >= 0]))} clusters.")
+    print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
+    print(f"HDBSCAN clustering took {time.perf_counter() - start_time:.2f} seconds")
+    return pd.Series(labels)
+
+
 def reconstruct_spatial_map(labels:pd.Series,
                             mask: np.ndarray,
                             original_shape: tuple) -> np.ndarray:
     print("Reconstructing spatial map from cluster labels...")
     height, width = original_shape
     spatial_map = np.full(height * width, -1)  # creates an empty array of the original size filled with -1 (background)
-    spatial_map[mask] = labels.values
+    # spatial_map[mask] = labels.values
+    # labels from array to series to align with mask indexing
+    spatial_map[mask] = labels
 
     # mask is boolean array which indicates which pixels are non-zero (from preprocessing)
-
+    reconstructed_map = spatial_map.reshape(height, width) # reshape back to original image dimensions
+    np.save(f"{run_folder}\\spatial_map_matrix_{name_of_run}.npy", reconstructed_map)
     print("Spatial map reconstruction complete. Took {:.2f} seconds".format(time.perf_counter() - start_time))
     # reshape converts 1d array into 2d grid which now has bg and actual image of sample
-    return spatial_map.reshape(height, width) 
+    return reconstructed_map
 
 def plot_spatial_map(spatial_map: np.ndarray,
                      title: str = name_of_run):
@@ -456,12 +504,17 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range) -> None:
 
 
 if __name__ == "__main__":
+    # run_timer(stop_event)
     file_path = r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy"
     matrix_scaled, mask, original_shape = load_and_preprocess_msi(file_path=file_path, 
                                                               remove_zero_pixels=True,
                                                               save_raw=f"{run_folder}\\matrix_raw.npy",
                                                               save_scaled=f"{run_folder}\\matrix_scaled.npy")
         
+    # read umap from csv if already done to save time
+    # umap_file_path = f"{run_folder}\\umap_results.csv"
+    # umap_transformed = pd.read_csv(umap_file_path).iloc[:, :2].values
+    # labels = pd.read_csv(umap_file_path).iloc[:, 2].values
     umap_transformed = perform_umap(
         matrix_scaled, 
         n_neighbors=15, 
@@ -470,6 +523,10 @@ if __name__ == "__main__":
         metric='euclidean', #can change to cosine to be faster
         # random_state=42, 
         supervised=False)
+    
+    # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=100000, seed=42)
+    # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=10)
+
 
     kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=8, random_state=42, n_init=10, init='k-means++')
     save_umap_results(
@@ -477,20 +534,24 @@ if __name__ == "__main__":
         kmeans_labels,
         f"{run_folder}\\umap_results.csv"
     )
+    # labels = hdbscan_clustering(matrix=umap_transformed, min_cluster_size=10, min_samples=None, cluster_selection_method='eom')
+    # save_umap_results(embedding_sub, labels_sub, f"{run_folder}\\umap_hdbscan_results.csv")
 
-    # plot_umap_plotly(umap_transformed, 
-    #     labels=kmeans_labels,
-    #     title="Interactive UMAP Visualization with KMeans Clusters", 
+    # plot_umap_plotly(embedding_sub, 
+    #     labels=labels_sub,
+    #     title="Interactive UMAP Visualization with HDBSCAN Clusters", 
     #     save_html=f"{run_folder}\\umap_msi_{name_of_run}.html")
     
-    # save_preprocessed_matrix(matrix_scaled, f"{run_folder}\\matrix_scaled.npy")
 
-    # spatial_map = reconstruct_spatial_map(kmeans_labels, mask, original_shape)
-    # plot_spatial_map(spatial_map, title="Mouse Brain MSI - KMeans Spatial Clusters")
+    spatial_map = reconstruct_spatial_map(kmeans_labels, mask, original_shape)
+    # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
+    plot_spatial_map(spatial_map, title=f"Mouse Brain MSI - {name_of_run}")
 
     
     # umap_file_path=r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\umap_kmeans_k2_5x5_smoothing.csv"
     # umap_transformed = pd.read_csv(umap_file_path)
     # plot_elbow_method(umap_transformed, k_range=range(1, 10))
-
+    # stop_event.set()
+    # timer_thread.join()
+    print("Dimensionality reduction and clustering pipeline complete. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
 
