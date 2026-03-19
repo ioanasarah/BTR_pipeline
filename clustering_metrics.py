@@ -81,6 +81,6 @@ with open(f"{run_folder}/clustering_metrics_{reduction_name}.txt", "w") as f:
     # f.write(f"Silhouette Score: {silhouette_avg:.4f}\n")
     f.write(f"Davies-Bouldin Score: {davies_bouldin_avg:.4f}\n")
     f.write(f"Calinski-Harabasz Score: {calinski_harabasz_avg:.4f}\n")
-    f.write(f"Percentage of abnormal edge pixels: {paep:.4f}\n%")
+    f.write(f"Percentage of abnormal edge pixels: {paep:.4f}%\n")
 
 print("Clustering metrics saved to file. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))

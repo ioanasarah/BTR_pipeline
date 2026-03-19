@@ -11,9 +11,10 @@ import umap
 import matplotlib
 matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
+import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
-import sklearn 
+import sklearn
 from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, HDBSCAN
 from scipy.ndimage import uniform_filter 
 from scipy.stats import f_oneway
@@ -66,14 +67,19 @@ def load_and_preprocess_msi(
     #     # averages each pixel's spectrum with its neighbors
     #     # 3×3 pixel window spatially but no smoothing across the m/z dimension
 
-    # rehsape 3d matrix
+    # apply spatial smoothing on 3D matrix before flattening
+    # size=[5, 5, 1] smooths spatially (5x5 pixel window) without mixing across m/z channels
+    if matrix.ndim == 3:
+        matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1])
+
+    # reshape 3d matrix
     if matrix.ndim == 3:
         height, width, n_peaks = matrix.shape
         X = matrix.reshape(height * width, n_peaks)
         print(f"Reshaped to: {X.shape}")
     else:
         X = matrix
-    
+
     # Remove zero pixels (important for MSI)
     if remove_zero_pixels:
         mask = np.sum(X, axis=1) > 0
@@ -81,8 +87,6 @@ def load_and_preprocess_msi(
         print(f"Shape after removing zero pixels: {X.shape}")
     else:
         mask = None
-
-    X = uniform_filter(X.astype(float), size=[5, 5])
 
     if save_raw:
         np.save(save_raw, X)
@@ -320,9 +324,9 @@ def plot_umap_plotly(umap_transformed: np.ndarray,
     return fig
 
 
-def kmeans_clustering(matrix: np.ndarray, 
+def kmeans_clustering(matrix: np.ndarray,
                       n_clusters: int,
-                      random_state: None,
+                      random_state: Optional[int] = None,
                       n_init: int = 10,
                       init: str = 'k-means++') -> pd.Series:
 
@@ -338,7 +342,7 @@ def kmeans_clustering(matrix: np.ndarray,
 
 def spectral_clustering(matrix: np.ndarray,
                         n_clusters: int,
-                        random_state: None) -> pd.Series:
+                        random_state: Optional[int] = None) -> pd.Series:
     
         # (random_state = None, n_components = 20, n_init = 10, gamma = 1, affinity = 
 # ‘rbf’, n_neighbors = 10, eigen_tol = 0.0, assign_labels = ‘kmeans’, degree = 3)
