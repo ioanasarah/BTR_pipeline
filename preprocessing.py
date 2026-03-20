@@ -17,7 +17,8 @@ from scipy.sparse import issparse
 
 print("Loaded packages! Starting preprocessing...")
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+results_folder = r"C:\Users\i6338212\data\results"
 preprocessing_run_name = "small_computer_xenium_omp"
 run_folder = os.path.join(results_folder, preprocessing_run_name)
 os.makedirs(run_folder, exist_ok=True)
