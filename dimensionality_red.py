@@ -564,6 +564,8 @@ def save_spatial_pca_results(embedding: np.ndarray,
 
 def peform_nmf(X: np.ndarray, n_components: int, max_iterations: int) -> np.ndarray:
     print("Performing NMF dimensionality reduction...")
+    X = np.clip(X, 0, None)
+    
     nmf = NMF(n_components=n_components, 
             #   svd_solver='auto', 
               init = "nndsvda", 
