@@ -57,8 +57,8 @@ def load_and_preprocess_msi(
     print(f"Loaded matrix shape: {matrix.shape}")
     
     # # apply spatial smoothing 
-    # if matrix.ndim == 3:
-    #     matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1])
+    if matrix.ndim == 3:
+        matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1])
     #     # averages each pixel's spectrum with its neighbors
     #     # 3×3 pixel window spatially but no smoothing across the m/z dimension
 
