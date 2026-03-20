@@ -230,7 +230,7 @@ def linear_recalibration(data, reference_mz, reference_intensity,
         # at least two points are required to fit a line
         if len(measured_peaks) < 2:
             # corrected_rows.append(pixel)  # cant fit a line, leave spectrum uncorrected
-            corrected_rows[i] = pixel.astype(np.float32)
+            corrected_rows[i_idx] = pixel.astype(np.float32)
             continue
         
         # fit linear correction: mz_true = a * mz_measured + b
@@ -241,7 +241,7 @@ def linear_recalibration(data, reference_mz, reference_intensity,
 
     
         corrected_pixel = np.interp(mz_axis, corrected_mz, pixel)
-        corrected_rows[i] = corrected_pixel.astype(np.float32) # store corrected spectrum for this pixel
+        corrected_rows[i_idx] = corrected_pixel.astype(np.float32) # store corrected spectrum for this pixel
     
 
     #  save corrected spectra as a new AnnData object or overwrite existing one

@@ -94,7 +94,7 @@ def run_clustering_metrics(dimensionality_red_output, run_folder, params):
     db = davies_bouldin_score(X, labels)
     ch = calinski_harabasz_score(X, labels)
 
-    paep = percentage_abnormal_edge_pixels(spatial_map=spatial_map)  # your function
+    paep = percentage_abnormal_edge_pixels(spatial_map=spatial_map)
 
     return {
         "davies_bouldin": db,

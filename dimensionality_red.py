@@ -80,7 +80,6 @@ def load_and_preprocess_msi(
     # save mask
     np.save(f"{run_folder}\\mask.npy", mask)
     print(f"Mask saved to {run_folder}\\mask.npy")
-    # X = uniform_filter(X.astype(float), size=[5, 5])
 
     if save_raw:
         np.save(save_raw, X)
@@ -559,7 +558,7 @@ def save_spatial_pca_results(embedding: np.ndarray,
 
 def kmeans_clustering(matrix: np.ndarray, 
                       n_clusters: int,
-                      random_state: None,
+                      random_state: Optional[int]=None,
                       n_init: int = 10,
                       init: str = 'k-means++') -> pd.Series:
 
@@ -575,7 +574,7 @@ def kmeans_clustering(matrix: np.ndarray,
 
 def spectral_clustering(matrix: np.ndarray,
                         n_clusters: int,
-                        random_state: None) -> pd.Series:
+                        random_state: Optional[int] = None) -> pd.Series:
     
         # (random_state = None, n_components = 20, n_init = 10, gamma = 1, affinity = 
 # ‘rbf’, n_neighbors = 10, eigen_tol = 0.0, assign_labels = ‘kmeans’, degree = 3)
