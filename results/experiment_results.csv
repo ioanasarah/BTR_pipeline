@@ -1,0 +1,6 @@
+run_id,dataset,peak_method,smoothing,bin_tol,dimred,n_components,clustering,n_clusters,n_features,runtime_sec,computer,zarr_path,normalisation,omp_coefs,n_clusters_found,davies_bouldin,calinski_harabasz,paep
+xenium_OMP_pca10_k3,xenium,OMP,,0.005,pca,10,kmeans,3,144,98.9760059,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,3,2.78827102,44077.41759,56.8995232
+xenium_OMP_pca10_k3_smoothing,xenium,OMP,5x5,0.005,pca,10,kmeans,3,144,177.2697293,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,3,2.915950756,64443.75054,44.75485522
+xenium_OMP_umap10_k5_smoothing,xenium,OMP,5x5,0.005,umap,10,kmeans,5,144,683.6482328,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,5,0.770564214,310562.7875,28.75415746
+xenium_OMP_spca10_k5_smoothing,xenium,OMP,5x5,0.005,spca,10,kmeans,5,144,221.5779742,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,5,2.368694607,63223.11786,44.53052681
+xenium_OMP_spca10_k2,xenium,OMP,,0.005,spca,10,kmeans,2,144,225.4204432000406,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,2,2.971422093106198,59735.673658373,21.29701128038144
