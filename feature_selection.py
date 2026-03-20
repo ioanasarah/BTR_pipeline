@@ -7,28 +7,28 @@ from statsmodels.stats.multitest import multipletests
 import matplotlib.pyplot as plt
 import plotly.express as px
 
-
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
-name_of_run = "k8_kmeans++_5x5_smoothing_omp"
-run_folder = os.path.join(results_folder, name_of_run)
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+preprocessing_run_name = "small_computer_xenium_omp"
+reduction_name = "pca_10_components_k3_no_smoothing"
+run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
 os.makedirs(run_folder, exist_ok=True)
 
 
 start_time = time.perf_counter()
 
 def load_things(raw_matrix_file_path: str,
-                umap_file_path: str):
+                pca_file_path: str):
     # load matrix
     matrix_scaled = np.load(raw_matrix_file_path)
     print(f"Matrix loaded in {time.perf_counter() - start_time:.2f} seconds")
 
-    # load umap 
+    # load pca 
 
-    umap_transformed = pd.read_csv(umap_file_path)
-    labels = umap_transformed["cluster"]
-
-
-    return matrix_scaled, umap_transformed, labels
+    pca_df = pd.read_csv(pca_file_path)
+    labels = pca_df["cluster"]
+    pca_transformed = pca_df.iloc[:, :-1].values
+    print(f"PCA results loaded. Shape: {pca_transformed.shape}, Clusters: {labels.nunique()}")
+    return matrix_scaled, pca_transformed, labels
 
 
 def perform_anova_test(matrix: np.ndarray, labels: pd.Series) -> pd.DataFrame:
@@ -126,14 +126,14 @@ def volcano_plot_plotly(matrix,
 if __name__ == "__main__":
     matrix_scaled, umap_transformed, labels = load_things(
         raw_matrix_file_path=f"{run_folder}\\matrix_raw.npy",
-        umap_file_path=f"{run_folder}\\umap_results.csv")
+        pca_file_path=f"{run_folder}\\pca_results.csv")
 
     p_values = perform_anova_test(matrix=matrix_scaled, labels=labels)
    
     reject, pvals_corrected = perform_fdr_correction(p_values)
     save_path = f"{run_folder}\\anova_results.csv"
     anova_results_df = pd.DataFrame({
-        "mz": pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\filtered_mz_values.csv")["mz"].values,
+        "mz": pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_tic_omp\filtered_mz_values.csv")["mz"].values,
         "p_value": p_values,
         "adjusted_p_value": pvals_corrected,
         "significant_after_fdr": reject

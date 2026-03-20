@@ -8,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import os
 import umap
+from sklearn.decomposition import PCA
 import matplotlib
 matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
@@ -17,38 +18,33 @@ import sklearn
 from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, HDBSCAN
 from scipy.ndimage import uniform_filter 
 from scipy.stats import f_oneway
+from scipy.spatial.distance import cdist
 import statsmodels
 from statsmodels.stats.multitest import multipletests
-import threading
+import scipy.sparse as sp
+from scipy.sparse import lil_matrix, csr_matrix
+from scipy.sparse.linalg import eigsh
 
 
-results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
-preprocessing_run_name = "hippocampus_tic_omp"
-reduction_name = "hdbscan_40min_5x5_smoothing"
-run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
-os.makedirs(run_folder, exist_ok=True)
+
+
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+
+
+
+# preprocessing_run_name = "small_computer_xenium_omp"
+# reduction_name = "OMP_pca10_k3_5x5_smoothing"
+# run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
+# os.makedirs(run_folder, exist_ok=True)
 
 start_time = time.perf_counter()
 
 print("Loaded packages! Starting dimensionality reduction...")
 
-# def run_timer(stop_event):
-#     start = time.time()
-#     while not stop_event.is_set():
-#         elapsed = time.time() - start
-#         mins, secs = divmod(int(elapsed), 60)
-#         hrs, mins = divmod(mins, 60)
-#         print(f"\r Elapsed: {hrs:02d}:{mins:02d}:{secs:02d}", end="", flush=True)
-#         time.sleep(1)
-#     print()
-
-# stop_event = threading.Event()
-# timer_thread = threading.Thread(target=run_timer, args=(stop_event,), daemon=True)
-# timer_thread.start()
-
 
 def load_and_preprocess_msi(
     file_path: str,
+    run_folder: str,
     remove_zero_pixels: bool = True,
     save_raw: Optional[str] = None,
     save_scaled: Optional[str] = None
@@ -56,7 +52,7 @@ def load_and_preprocess_msi(
 
     
     # Load matrix
-    matrix = np.load(file_path, allow_pickle=True) # should be in npy format 
+    matrix = np.load(file_path) 
     original_shape = (matrix.shape[0], matrix.shape[1]) if matrix.ndim == 3 else None
     print(f"Loaded matrix shape: {matrix.shape}")
     
@@ -81,8 +77,10 @@ def load_and_preprocess_msi(
         print(f"Shape after removing zero pixels: {X.shape}")
     else:
         mask = None
-
-    X = uniform_filter(X.astype(float), size=[5, 5])
+    # save mask
+    np.save(f"{run_folder}\\mask.npy", mask)
+    print(f"Mask saved to {run_folder}\\mask.npy")
+    # X = uniform_filter(X.astype(float), size=[5, 5])
 
     if save_raw:
         np.save(save_raw, X)
@@ -161,8 +159,7 @@ def perform_umap(X: np.ndarray,
     
     print("done with umap! took {:.2f} seconds".format(time.perf_counter() - start_time))
     return umap_transformed
-
-
+    
 def save_umap_results(umap_transformed: np.ndarray,
                       labels: pd.Series,
                     save_path: str) -> None:
@@ -174,59 +171,33 @@ def save_umap_results(umap_transformed: np.ndarray,
 
     umap_df.to_csv(save_path, index=False)
 
+def perform_pca(X: np.ndarray, n_components: int) -> np.ndarray:
+    print("Performing PCA dimensionality reduction...")
+    pca = PCA(n_components=n_components, 
+              svd_solver='randomized', 
+              random_state=42)
+    pca_transformed = pca.fit_transform(X)
+    loadings = pca.components_
+    explained = pca.explained_variance_ratio_
+    print("done with PCA! took {:.2f} seconds".format(time.perf_counter() - start_time))
+    return pca_transformed, loadings, explained
+
+
+def save_pca_results(pca_transformed: np.array,
+                     labels: pd.Series,
+                     save_path: str):
+    pca_df = pd.DataFrame(
+        pca_transformed,
+        columns=[f"PC{i+1}" for i in range(pca_transformed.shape[1])]
+    )
+    pca_df["cluster"] = labels
+    
+    pca_df.to_csv(save_path, index=False)
+
+
 def save_preprocessed_matrix(matrix: np.ndarray, save_path: str) -> None:
     np.save(save_path, matrix)
     print(f"Preprocessed matrix saved to {save_path}. Took {time.perf_counter() - start_time:.2f} seconds")
-
-
-def plot_umap_matplotlib(umap_transformed: np.ndarray, 
-                        labels: pd.Series,
-                        title: str = "UMAP 2D Visualization",
-                        save_path: Optional[str] = None) -> None:
-    """
-    Plot UMAP results using Matplotlib.
-    
-    Args:
-        umap_transformed: UMAP-transformed data
-        labels: Cluster labels
-        title: Plot title
-        save_path: Path to save the figure (None to display only)
-    """
-    plt.figure(figsize=(12, 10))
-    scatter = sns.scatterplot(
-        x=umap_transformed[:, 0],
-        y=umap_transformed[:, 1],
-        hue=labels.astype(str),
-        palette="viridis",
-        alpha=0.7,
-        s=15
-    )
-    
-    # Improve legend - keep only most frequent clusters in legend
-    handles, labels_legend = scatter.get_legend_handles_labels()
-    
-    # Count frequencies
-    label_counts = labels.value_counts()
-    top_n = 15  # Show top N clusters in legend
-    top_clusters = label_counts.nlargest(top_n).index.astype(str).tolist()
-    
-    # Filter legend items
-    filtered_handles = [h for h, l in zip(handles, labels_legend) if l in top_clusters]
-    filtered_labels = [l for l in labels_legend if l in top_clusters]
-    
-    plt.legend(filtered_handles, filtered_labels, title="Top Clusters", 
-               bbox_to_anchor=(1.05, 1), loc='upper left')
-    
-    plt.title(title, fontsize=14)
-    plt.xlabel("UMAP Component 1", fontsize=12)
-    plt.ylabel("UMAP Component 2", fontsize=12)
-    plt.tight_layout()
-    
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Figure saved to {save_path}")
-    
-    plt.show()
 
 
 def plot_umap_plotly(umap_transformed: np.ndarray, 
@@ -318,7 +289,273 @@ def plot_umap_plotly(umap_transformed: np.ndarray,
         print(f"Interactive plot saved to {save_html}. Took {time.perf_counter() - start_time:.2f} seconds")
     
     return fig
+def plot_pca_3d(pca_transformed: np.ndarray,
+                labels: pd.Series,
+                explained_variance: Optional[np.ndarray] = None,
+                data: Optional[pd.DataFrame] = None,
+                title: str = "Interactive 3D PCA Visualization",
+                height: int = 800,
+                width: int = 1000,
+                point_size: int = 3,
+                opacity: float = 0.7,
+                color_discrete_sequence: Optional[list[str]] = None,
+                save_html: Optional[str] = None) -> go.Figure:
 
+    if pca_transformed.shape[1] < 3:
+        raise ValueError(f"Need at least 3 PCA components for 3D plot, got {pca_transformed.shape[1]}")
+
+    print("Creating interactive 3D PCA visualization with Plotly...")
+
+    if explained_variance is not None:
+        axis_labels = [f"PC{i+1} ({explained_variance[i]*100:.1f}%)" for i in range(3)]
+    else:
+        axis_labels = ["PC1", "PC2", "PC3"]
+
+    # Build plot dataframe
+    df_plot = pd.DataFrame({
+        'PC1': pca_transformed[:, 0],
+        'PC2': pca_transformed[:, 1],
+        'PC3': pca_transformed[:, 2],
+        'Cluster': labels.astype(str)
+    })
+
+    # Add hover data 
+    hover_data = None
+    if data is not None:
+        data = data.reset_index(drop=True)
+        df_plot = df_plot.reset_index(drop=True)
+
+        if 'Cell-ID' in data.columns:
+            df_plot['Cell_ID'] = data['Cell-ID']
+        if 'X centroid' in data.columns and 'Y centroid' in data.columns:
+            df_plot['X_pos'] = data['X centroid']
+            df_plot['Y_pos'] = data['Y centroid']
+
+        hover_data = ['Cell_ID', 'X_pos', 'Y_pos']
+
+    # Create 3D scatter
+    fig = px.scatter_3d(
+        df_plot,
+        x='PC1',
+        y='PC2',
+        z='PC3',
+        color='Cluster',
+        hover_data=hover_data,
+        color_discrete_sequence=color_discrete_sequence,
+        opacity=opacity,
+        height=height,
+        width=width,
+        title=title,
+        labels={
+            'PC1': axis_labels[0],
+            'PC2': axis_labels[1],
+            'PC3': axis_labels[2]
+        }
+    )
+
+    fig.update_traces(marker=dict(size=point_size))
+
+    fig.update_layout(
+        legend_title_text='Cluster',
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=1.01,
+            itemsizing='constant'
+        ),
+        margin=dict(l=20, r=20, t=40, b=20),
+        scene=dict(
+            xaxis_title=axis_labels[0],
+            yaxis_title=axis_labels[1],
+            zaxis_title=axis_labels[2]
+        )
+    )
+
+    if save_html:
+        fig.write_html(save_html)
+        print(f"3D PCA plot saved to {save_html}. Took {time.perf_counter() - start_time:.2f} seconds")
+
+    return fig
+
+def perform_spca(X: np.array, 
+                 coords, 
+                 n_components=10, 
+                 bandwidth=1.0, 
+                 alpha: float = 0.5):
+    """
+    X = matrix (n_pixels, n_features)
+    coords = (n_pixels, 2) -- xy pixel coordinates
+    bandwidth = how far neighbours influence each other
+    alpha 0 = standard PCA, 1 = fully spatial
+    """
+    print("Performing SpatialPCA...")
+    # normal pca
+    pca = PCA(n_components=n_components, 
+              svd_solver='randomized', 
+              random_state=42)
+    pca_transformed = pca.fit_transform(X)
+
+    # gaussian spatial kernel
+    distances = cdist(coords, coords, metric='euclidean')
+    # distances[i,j] = distance between pixel i and j 
+    # close together pixels = small value for this variable
+    K = np.exp(-distances**2 / (2 * bandwidth**2))
+    # turning distance into weights to convert distance to similarity
+    # K[i, j] = "how much pixel j influences pixel i"
+
+    # row normalise K
+    K_normalised = K / K.sum(axis=1, keepdims = True)
+    # each pixel takes a weighted average of neighbors
+
+    # spatially smoothed embedding
+    spatial_embedding = K_normalised @ pca_transformed
+    # each pixel gets a new value of a weighted average of the neighbouring pca values
+
+
+    combined_embedding = (1-alpha) * pca_transformed + alpha * spatial_embedding
+
+    return combined_embedding
+
+def get_pixel_coords(mask: np.ndarray, original_shape: tuple) -> np.ndarray:
+    """
+    Get (x, y) coordinates for each non-zero pixel in the mask.
+    Returns shape (n_pixels, 2).
+    """
+    height, width = original_shape
+    all_coords = np.array([[i, j] for i in range(height) for j in range(width)])
+    pixel_coords = all_coords[mask.flatten()]
+    print(f"Extracted coordinates for {len(pixel_coords)} pixels")
+    return pixel_coords
+
+def build_pixel_grid_graph_sparse(coords: np.ndarray,
+                                   connectivity: int = 4) -> csr_matrix:
+    """
+    Build a sparse spatial weight matrix for a pixel grid.
+    Never computes all-to-all distances — looks up grid neighbours directly.
+    
+    connectivity=4:  up/down/left/right only
+    connectivity=8:  includes diagonals
+    
+    Returns a sparse (n_pixels, n_pixels) adjacency matrix.
+    """
+    n = len(coords)
+    coord_to_idx = {(int(r), int(c)): i for i, (r, c) in enumerate(coords)}
+
+    if connectivity == 4:
+        offsets = [(-1,0),(1,0),(0,-1),(0,1)]
+    else:
+        offsets = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
+
+    rows, cols, data = [], [], []
+    for i, (r, c) in enumerate(coords):
+        for dr, dc in offsets:
+            j = coord_to_idx.get((int(r)+dr, int(c)+dc))
+            if j is not None:
+                rows.append(i)
+                cols.append(j)
+                data.append(1.0)
+
+    W = csr_matrix((data, (rows, cols)), shape=(n, n))
+    print(f"Sparse graph: {W.nnz:,} edges, "
+          f"{W.nnz/n:.1f} avg neighbours/pixel, "
+          f"memory: {W.data.nbytes/1e6:.1f} MB")
+    return W
+
+
+def spatial_pca_sparse(X: np.ndarray,
+                        coords: np.ndarray,
+                        n_components: int = 10,
+                        alpha: float = 0.5,
+                        connectivity: int = 4,
+                        chunk_size: int = 50_000,
+                        run_folder: str = None,
+                        start_time: float = None) -> np.ndarray:
+    """
+    Memory-safe spatial PCA using a sparse pixel grid graph.
+
+    Args:
+        X: (n_pixels, n_features) scaled intensity matrix
+        coords: (n_pixels, 2) pixel (row, col) coordinates
+        n_components: number of spatial PCs to compute
+        alpha: blending weight — 0.0 = standard PCA, 1.0 = fully spatially smoothed
+        connectivity: 4 (grid only) or 8 (include diagonals)
+        chunk_size: rows to process at a time during smoothing — reduce if RAM is tight
+        run_folder: where to save results
+        start_time: perf_counter reference for timing
+    
+    Returns:
+        embedding: (n_pixels, n_components) spatially aware embedding
+    """
+    print("Performing sparse SpatialPCA...")
+    n_pixels = X.shape[0]
+    t = start_time or time.perf_counter()
+
+    # ── 1. Standard PCA on raw intensities ────────────────────────────────────
+    print("Step 1/3: Running standard PCA...")
+    pca = PCA(n_components=n_components, svd_solver='randomized', random_state=42)
+    Z_pca = pca.fit_transform(X)   # (n_pixels, n_components)  float64
+    explained = pca.explained_variance_ratio_
+    print(f"  PCA done — top 3 components explain "
+          f"{explained[:3].sum()*100:.1f}% variance. "
+          f"Took {time.perf_counter()-t:.1f}s")
+
+    # ── 2. Build sparse spatial graph ─────────────────────────────────────────
+    print("Step 2/3: Building sparse spatial graph...")
+    W = build_pixel_grid_graph_sparse(coords, connectivity=connectivity)
+
+    # row-normalise: each pixel gets the mean of its neighbours' PCA scores
+    # D^-1 W  (D = diagonal degree matrix)
+    degree = np.array(W.sum(axis=1)).flatten()
+    degree_inv = 1.0 / np.where(degree > 0, degree, 1.0)  # avoid /0 for isolated pixels
+    D_inv = sp.diags(degree_inv)
+    W_norm = D_inv @ W   # still sparse — no memory explosion
+
+    print(f"  Graph normalised. Took {time.perf_counter()-t:.1f}s")
+
+    # ── 3. Apply spatial smoothing in chunks (avoids loading full W*Z at once) ─
+    print(f"Step 3/3: Applying spatial smoothing in chunks of {chunk_size:,}...")
+    Z_smooth = np.empty_like(Z_pca)
+
+    for start in range(0, n_pixels, chunk_size):
+        end = min(start + chunk_size, n_pixels)
+        # W_norm[start:end] is a sparse slice — the matmul stays sparse
+        Z_smooth[start:end] = W_norm[start:end] @ Z_pca
+        if start % 200_000 == 0:
+            print(f"  Smoothed {end:,}/{n_pixels:,} pixels... "
+                  f"({time.perf_counter()-t:.1f}s)")
+
+    # ── 4. Blend standard PCA and spatially smoothed PCA ──────────────────────
+    embedding = (1.0 - alpha) * Z_pca + alpha * Z_smooth
+
+    print(f"Spatial PCA complete. Embedding shape: {embedding.shape}. "
+          f"Total time: {time.perf_counter()-t:.1f}s")
+
+    # ── 5. Save ───────────────────────────────────────────────────────────────
+    if run_folder:
+        np.save(os.path.join(run_folder, "spatial_pca_embedding.npy"), embedding)
+
+        # also save the explained variance from the underlying PCA
+        pd.DataFrame({
+            'component': [f'PC{i+1}' for i in range(n_components)],
+            'explained_variance_ratio': explained
+        }).to_csv(os.path.join(run_folder, "spatial_pca_explained_variance.csv"), index=False)
+
+        print(f"Results saved to {run_folder}")
+
+    return embedding, explained
+
+
+def save_spatial_pca_results(embedding: np.ndarray,
+                              labels: pd.Series,
+                              save_path: str) -> None:
+    df = pd.DataFrame(
+        embedding,
+        columns=[f"SPC{i+1}" for i in range(embedding.shape[1])]
+    )
+    df["cluster"] = labels.values
+    df.to_csv(save_path, index=False)
+    print(f"Spatial PCA results saved to {save_path}")
 
 def kmeans_clustering(matrix: np.ndarray, 
                       n_clusters: int,
@@ -391,10 +628,18 @@ def hdbscan_clustering(matrix: np.ndarray,
     print(f"HDBSCAN clustering took {time.perf_counter() - start_time:.2f} seconds")
     return pd.Series(labels)
 
+# run_folder = os.path.join(
+#         results_folder,
+#         folder_name,
+#         params["run_id"]
+#     )
+# os.makedirs(run_folder, exist_ok=True)
 
 def reconstruct_spatial_map(labels:pd.Series,
                             mask: np.ndarray,
-                            original_shape: tuple) -> np.ndarray:
+                            original_shape: tuple,
+                            run_folder: str,
+                            run_name: str) -> np.ndarray:
     print("Reconstructing spatial map from cluster labels...")
     height, width = original_shape
     spatial_map = np.full(height * width, -1)  # creates an empty array of the original size filled with -1 (background)
@@ -404,13 +649,14 @@ def reconstruct_spatial_map(labels:pd.Series,
 
     # mask is boolean array which indicates which pixels are non-zero (from preprocessing)
     reconstructed_map = spatial_map.reshape(height, width) # reshape back to original image dimensions
-    np.save(f"{run_folder}\\spatial_map_matrix_{reduction_name}.npy", reconstructed_map)
+    np.save(f"{run_folder}\\spatial_map_matrix_{run_name}.npy", reconstructed_map)
     print("Spatial map reconstruction complete. Took {:.2f} seconds".format(time.perf_counter() - start_time))
     # reshape converts 1d array into 2d grid which now has bg and actual image of sample
     return reconstructed_map
 
 def plot_spatial_map(spatial_map: np.ndarray,
-                     title: str = reduction_name):
+                     title: str, 
+                     run_folder: str):
     print( "Plotting spatial map of clusters...")
     fig, ax = plt.subplots(figsize=(10, 8))
 
@@ -440,9 +686,9 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range) -> None:
     plt.xlabel("Number of clusters (k)")
     plt.ylabel("Inertia")
     plt.title("Elbow Method for Optimal k")
-    plt.savefig(f"{run_folder}\\{reduction_name}_elbow_method.png")
+    plt.savefig(f"{run_folder}\\ceva_elbow_method.png")
     plt.show()
-    print(f"Elbow method plot saved to {run_folder}\\{reduction_name}_elbow_method.png. Took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Elbow method plot saved to {run_folder}\\ceva_elbow_method.png. Took {time.perf_counter() - start_time:.2f} seconds")
 
 # umap_transformed = perform_umap(
 #     matrix_scaled, 
@@ -498,61 +744,205 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range) -> None:
 
 
 if __name__ == "__main__":
-    # run_timer(stop_event)
-    file_path = r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy"
+    folder_name = "xenium_laptop"
+    run_folder = os.path.join(
+        results_folder,
+        folder_name,
+        "xenium_OMP_spca10_k5_smoothing"
+    )
+#     # run_timer(stop_event)
+    file_path = r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy"
     matrix_scaled, mask, original_shape = load_and_preprocess_msi(file_path=file_path, 
+                                                            run_folder=run_folder,
                                                               remove_zero_pixels=True,
                                                               save_raw=f"{run_folder}\\matrix_raw.npy",
                                                               save_scaled=f"{run_folder}\\matrix_scaled.npy")
-        
-    # read umap from csv if already done to save time
-    # umap_file_path = f"{run_folder}\\umap_results.csv"
-    # umap_transformed = pd.read_csv(umap_file_path).iloc[:, :2].values
-    # labels = pd.read_csv(umap_file_path).iloc[:, 2].values
+#     # matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
+#     # mask = np.load(f"{run_folder}\\mask.npy")
+#     # original_shape = mask.shape
+    print(f"Loaded matrix with shape {original_shape}. Scaled matrix has shape {matrix_scaled.shape}")
+#     # pca_transformed = perform_pca(matrix_scaled, n_components=10)
+#     # save_preprocessed_matrix(pca_transformed, f"{run_folder}\\matrix_pca.npy")
+
+    coords = get_pixel_coords(mask, original_shape)
+    embedding, explained = spatial_pca_sparse(
+            X = matrix_scaled, 
+            coords = coords,
+            n_components= 10,
+            alpha = 0.5,
+            connectivity = 4, 
+            chunk_size= 50_000,
+            run_folder=run_folder,
+            start_time=start_time
+        )
+    
+
+#     # read umap from csv if already done to save time
+#     # umap_file_path = f"{run_folder}\\umap_results.csv"
+#     # umap_transformed = pd.read_csv(umap_file_path).iloc[:, :2].values
+#     # labels = pd.read_csv(umap_file_path).iloc[:, 2].values
     
    
+#     # if os.path.exists(f"{run_folder}\\umap_results.csv"):
+#     #     print(f"Loading UMAP results from {f"{run_folder}\\umap_results.csv"}...")
+#     #     umap_df = pd.read_csv(f"{run_folder}\\umap_results.csv")
+#     #     umap_transformed = umap_df.iloc[:, :2].values
+#     #     labels = umap_df.iloc[:, 2].values
+#     #     print("UMAP results loaded successfully.")
+#     # else:
+#     #     umap_transformed = perform_umap(
+#     #         matrix_scaled, 
+#     #         n_neighbors=15, 
+#     #         min_dist=0.1, 
+#     #         n_components=2, 
+#     #         metric='euclidean', #can change to cosine to be faster
+#     #         # random_state=42, 
+#     #         supervised=False)
+#     #     labels = kmeans_clustering(matrix=umap_transformed, n_clusters=2, random_state=42, n_init=10, init='k-means++')
+#     #     save_umap_results(umap_transformed, labels, f"{run_folder}\\umap_results.csv")
+   
+#     # if os.path.exists(f"{run_folder}\\pca_results.csv"):
+#     #     # print(f"Loading PCA results from {f"{run_folder}\\pca_results.csv"}...")
+#     #     pca_df = pd.read_csv(f"{run_folder}\\pca_results.csv")
+#     #     pca_transformed = pca_df.iloc[:, :-1].values
+#     #     labels = pca_df.iloc[:, -1].values
+#     #     print("PCA results loaded successfully.")
+#     # else:
+#     #     pca_transformed, loadings, explained = perform_pca(matrix_scaled, n_components=10)
+#     #     labels = kmeans_clustering(matrix=pca_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
+#     #     save_pca_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
 
-    umap_transformed = perform_umap(
-        matrix_scaled, 
-        n_neighbors=15, 
-        min_dist=0.1, 
-        n_components=2, 
-        metric='euclidean', #can change to cosine to be faster
-        # random_state=42, 
-        supervised=False)
+#     pca_transformed, loadings, explained = perform_pca(matrix_scaled, n_components=10)
+#     labels = kmeans_clustering(matrix=pca_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
+#     save_pca_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
+#     # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=, seed=42)
+#     # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=20)
+
+    plot_elbow_method(embedding, k_range=range(1,15))
+
+# # redo all the first ones i did !!
+#     # labels = kmeans_clustering(matrix=pca_transformed, n_clusters=5, random_state=42, n_init=10, init='k-means++')
+#     # save_umap_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
+#     # save_umap_results(
+#     #     umap_transformed, 
+#     #     kmeans_labels,
+#     #     f"{run_folder}\\umap_results.csv"
+#     # )
+#     # labels = hdbscan_clustering(matrix=umap_transformed, min_cluster_size=40, min_samples=None, cluster_selection_method='eom')
+#     # save_umap_results(umap_transformed, labels, f"{run_folder}\\umap_results.csv")
+
+#     plot_umap_plotly(pca_transformed, 
+#         labels=labels,
+#         title=f"Interactive PCA Visualization - {reduction_name}", 
+#         save_html=f"{run_folder}\\pca_msi_{reduction_name}.html")
     
-    # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=, seed=42)
-    # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=20)
+#     plot_pca_3d(pca_transformed, 
+#                 labels,
+#                 explained_variance=explained, 
+#                 save_html=f"{run_folder}\\pca_3d_{reduction_name}.html")
+#     spatial_map = reconstruct_spatial_map(labels, mask, original_shape)
+#     # # # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
+#     plot_spatial_map(spatial_map, title=f"Mouse Brain MSI - {reduction_name}")
 
-    # plot_elbow_method(umap_transformed, k_range=range(1, 8))
+    
+#     # umap_file_path=r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\umap_kmeans_k2_5x5_smoothing.csv"
+#     # umap_transformed = pd.read_csv(umap_file_path)
+
+#     print("Dimensionality reduction and clustering pipeline complete. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
 
 
-    # kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
-    # save_umap_results(
-    #     umap_transformed,
-    #     kmeans_labels,
-    #     f"{run_folder}\\umap_results.csv"
+def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
+    start_time = time.perf_counter()
+    # folder_name = f"{params['dataset']}_{params['computer']}"
+    # run_folder = os.path.join(
+    #     results_folder,
+    #     folder_name,
+    #     params["run_id"]
     # )
-    labels = hdbscan_clustering(matrix=umap_transformed, min_cluster_size=40, min_samples=None, cluster_selection_method='eom')
-    save_umap_results(umap_transformed, labels, f"{run_folder}\\umap_results.csv")
+    os.makedirs(run_folder,     exist_ok=True)
 
-    plot_umap_plotly(umap_transformed, 
-        labels=labels,
-        title=f"Interactive UMAP Visualization - {reduction_name}", 
-        save_html=f"{run_folder}\\umap_msi_{reduction_name}.html")
-    
+    # preprocessing
+    matrix_scaled, mask, original_shape = load_and_preprocess_msi(
+        file_path=file_path,
+        run_folder=run_folder,
+        remove_zero_pixels=params.get("remove_zero_pixels", True),
+        save_raw=f"{run_folder}\\matrix_raw.npy",
+        save_scaled=f"{run_folder}\\matrix_scaled.npy"
+    )
 
-    spatial_map = reconstruct_spatial_map(labels, mask, original_shape)
-    # # # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
-    plot_spatial_map(spatial_map, title=f"Mouse Brain MSI - {reduction_name}")
+    # dimensionality reduction
+    if params["dimred"] == "pca":
+        embedding, loadings, explained = perform_pca(
+            matrix_scaled,
+            n_components=params["n_components"]
+        )
 
-    
-    # umap_file_path=r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\umap_kmeans_k2_5x5_smoothing.csv"
-    # umap_transformed = pd.read_csv(umap_file_path)
+    elif params["dimred"] == "umap":
+        embedding = perform_umap(
+            matrix_scaled,
+            n_neighbors=params.get("n_neighbors", 15),
+            min_dist=params.get("min_dist", 0.1),
+            n_components=params.get("n_components", 2)
+        )
+        explained = None
+    elif params["dimred"] == "spca":
+        coords = get_pixel_coords(mask, original_shape)
+        embedding, explained = spatial_pca_sparse(
+            X = matrix_scaled, 
+            coords = coords,
+            n_components= params.get("n_components", 10),
+            alpha = params.get("spatial_alpha", 0.5),
+            connectivity = params.get("spatial_connectivity", 4), 
+            chunk_size= params.get("chunk_size", 50_000),
+            run_folder=run_folder,
+            start_time=start_time
+        )
+    else:
+        raise ValueError(f"Unknown dimred method: {params['dimred']}")
 
-    print("Dimensionality reduction and clustering pipeline complete. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
+    # clustering
+    if params["clustering"] == "kmeans":
+        labels = kmeans_clustering(
+            embedding,
+            n_clusters=params["n_clusters"],
+            random_state=params.get("random_state", 42)
+        )
 
+    elif params["clustering"] == "hdbscan":
+        labels = hdbscan_clustering(embedding)
 
-    
+    else:
+        raise ValueError(f"Unknown clustering method")
 
+    # save results
+    if params["dimred"] == "pca":
+        save_pca_results(embedding, labels, f"{run_folder}\\pca_results.csv")
+    elif params["dimred"] == "spca":
+        save_spatial_pca_results(embedding, labels, f"{run_folder}_spca_results.csv")
+    else:
+        save_umap_results(embedding, labels, f"{run_folder}\\umap_results.csv")
+
+    # plotting
+    plot_umap_plotly(
+        embedding,
+        labels,
+        title=f"{params['dimred']}dimensionality reduction - {params['run_id']}",
+        save_html=f"{run_folder}\\plot.html"
+    )
+
+    spatial_map = reconstruct_spatial_map(labels, mask, original_shape, run_folder, params['run_id'])
+    plot_spatial_map(spatial_map, title=f"Spatial Map - {params['run_id']}", run_folder=run_folder)
+
+    runtime = time.perf_counter() - start_time
+
+    return {
+        "embedding": embedding,
+        "explained_variance": explained,
+        # "spatial_map_file_path": ,
+        "labels": labels,
+        "run_name": params["run_id"],
+        "runtime": runtime,
+        "n_samples": len(labels),
+        "n_clusters_found": len(set(labels)) - (1 if -1 in labels else 0)
+    }
 

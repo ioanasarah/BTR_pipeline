@@ -17,8 +17,8 @@ from scipy.sparse import issparse
 
 print("Loaded packages! Starting preprocessing...")
 
-results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
-preprocessing_run_name = "hippocampus_tic_omp"
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+preprocessing_run_name = "small_computer_xenium_omp"
 run_folder = os.path.join(results_folder, preprocessing_run_name)
 os.makedirs(run_folder, exist_ok=True)
 
@@ -38,8 +38,8 @@ def compute_average_spectrum(
         ):
     
     print("computing average spectrum...")
-    # data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
-    data = spatial_data["msi_dataset_z0"]
+    data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
+    # data = spatial_data["msi_dataset_z0"]
     mz = data.var["mz"].values
     avg_intensity = data.uns["average_spectrum"] # unstructured annotation within anndata object
     # average intensity at each m/z across all pixels
@@ -451,8 +451,8 @@ def reshaping_to_3d_matrix(
     height = len(np.unique(y_coords))
     print(f"Reshaping to 3D matrix with dimensions: ({height}, {width}, {filtered_spectra.shape[1]})")
 
-    # matrix = filtered_spectra.toarray().reshape(height, width, -1)
-    matrix = filtered_spectra.reshape(height, width, -1)
+    matrix = filtered_spectra.toarray().reshape(height, width, -1)
+    # matrix = filtered_spectra.reshape(height, width, -1)
     print(f"Reshaped matrix shape: {matrix.shape} in {time.perf_counter() - start_time:.2f} seconds")
     
     return matrix
@@ -465,59 +465,82 @@ def reshaping_to_3d_matrix(
 # pd.DataFrame({"mz": peak_mz}).to_csv(f"{results_folder}\\peak_mz_values_omp.csv", index=False)
 
 
-if __name__ == "__main__":
-    # zarr_path = r"C:\Users\i6338212\data\Ioana Test Data\Data\xenium.zarr"
-    zarr_path=r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr"
-    spatial_data = reading_data(zarr_path)
-    AnnData, mz, avg_intensity, average_spectrum = compute_average_spectrum(spatial_data)
-    print(f"data type: {type(AnnData)}, mz type: {type(mz)}, avg_intensity type: {type(avg_intensity)}")
-    shift = check_mass_drift(AnnData, n_pixels=1000)
+# if __name__ == "__main__":
+#     # zarr_path = r"C:\Users\i6338212\data\Ioana Test Data\Data\xenium.zarr"
+#     zarr_path=r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr"
+#     spatial_data = reading_data(zarr_path)
+#     AnnData, mz, avg_intensity, average_spectrum = compute_average_spectrum(spatial_data)
+#     print(f"data type: {type(AnnData)}, mz type: {type(mz)}, avg_intensity type: {type(avg_intensity)}")
+#     shift = check_mass_drift(AnnData, n_pixels=1000)
 
-    # aligned_matrix, mz_axis = linear_recalibration(AnnData, mz, avg_intensity)
+#     # aligned_matrix, mz_axis = linear_recalibration(AnnData, mz, avg_intensity)
 
-    # aligned_matrix, mz = linear_recalibration(AnnData, mz, avg_intensity)
-    # print(f"data type after recalibration: {type(aligned_matrix)}, mz type: {type(mz)}")
-    # # print first 10 values of aligned matrix and mz to check
-    # print("First 10 m/z values after recalibration:", mz[:10])
-    # print("First 10 intensity values of the first pixel after recalibration:", aligned_matrix[0, :10])
-    # # recompute average on aigned spectra
-    # avg_intensity = aligned_matrix.mean(axis=0)
-    # print(f"Average intensity after recalibration: {avg_intensity[:10]}") # print first 10 values to check")
+#     # aligned_matrix, mz = linear_recalibration(AnnData, mz, avg_intensity)
+#     # print(f"data type after recalibration: {type(aligned_matrix)}, mz type: {type(mz)}")
+#     # # print first 10 values of aligned matrix and mz to check
+#     # print("First 10 m/z values after recalibration:", mz[:10])
+#     # print("First 10 intensity values of the first pixel after recalibration:", aligned_matrix[0, :10])
+#     # # recompute average on aigned spectra
+#     # avg_intensity = aligned_matrix.mean(axis=0)
+#     # print(f"Average intensity after recalibration: {avg_intensity[:10]}") # print first 10 values to check")
 
-    peak_mz, peak_intensities = peak_detection_omp(mz, avg_intensity, non_zero_coefs=700)
-    # peak_mz_mad, peak_intensities_mad = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
-    # print(f"mz data type: {type(mz)}")
-    # # print("Average spectrum m/z values:", mz)
-    # print("Mean difference between adjacent m/z values:", np.diff(mz).mean())
-    pd.DataFrame({"mz": peak_mz}).to_csv(f"{run_folder}\\peak_mz_values.csv", index=False)
+#     peak_mz, peak_intensities = peak_detection_omp(mz, avg_intensity, non_zero_coefs=700)
+#     # peak_mz_mad, peak_intensities_mad = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
+#     # print(f"mz data type: {type(mz)}")
+#     # # print("Average spectrum m/z values:", mz)
+#     # print("Mean difference between adjacent m/z values:", np.diff(mz).mean())
+#     pd.DataFrame({"mz": peak_mz}).to_csv(f"{run_folder}\\peak_mz_values.csv", index=False)
 
-    bins = peak_binning(peak_mz, tolerance=0.005)
-    pd.DataFrame({"mz": bins}).to_csv(f"{run_folder}\\binned_mz_values.csv", index=False)
-    print(f"Binned m/z values saved to {run_folder}\\binned_mz_values.csv")
+#     bins = peak_binning(peak_mz, tolerance=0.005)
+#     pd.DataFrame({"mz": bins}).to_csv(f"{run_folder}\\binned_mz_values.csv", index=False)
+#     print(f"Binned m/z values saved to {run_folder}\\binned_mz_values.csv")
 
-    pooled_spectra, pooled_mz = pooling(aligned_matrix=AnnData.X, mz_recalibrated=mz, bins=bins)
-    presence, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz)
-    pd.DataFrame({"mz": filtered_mz}).to_csv(
-        f"{run_folder}\\filtered_mz_values.csv",
-        index=False
+#     pooled_spectra, pooled_mz = pooling(aligned_matrix=AnnData.X, mz_recalibrated=mz, bins=bins)
+#     presence, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz)
+#     pd.DataFrame({"mz": filtered_mz}).to_csv(
+#         f"{run_folder}\\filtered_mz_values.csv",
+#         index=False
+#     )
+#     print(f"Filtered m/z values saved to {run_folder}\\filtered_mz_values.csv")
+
+#     normalised_matix = tic_normalization(filtered_spectra)
+#     if issparse(normalised_matix):
+#         normalised_matix = normalised_matix.toarray()
+
+
+#     matrix = reshaping_to_3d_matrix(AnnData, normalised_matix)
+# # # print("Nonzeros:", np.count_nonzero(matrix))
+# # plt.imshow(matrix[:, :, 94], cmap="hot", interpolation="nearest") # visualize the ion image for the peak at index 98 (closest to 647.47 m/z)
+# # plt.colorbar()
+# # plt.title("Ion Image for Peak 0")
+# # plt.show()
+# # print(np.max(matrix[:, :, 0]))
+
+#     np.save("msi_matrix.npy", matrix)
+
+
+# # # Reshaping to 3D matrix with dimensions: (1469, 1007, 142)
+# # # Reshaped matrix shape: (1469, 1007, 142) in 13.56 seconds
+
+def run_preprocessing(params, run_folder):
+    spatial_data = reading_data(params["zarr_path"])
+    AnnData, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
+
+    peak_mz, peak_intensities = peak_detection_omp(
+        mz, avg_intensity, non_zero_coefs=params["omp_coefs"]
     )
-    print(f"Filtered m/z values saved to {run_folder}\\filtered_mz_values.csv")
 
-    normalised_matix = tic_normalization(filtered_spectra)
-    if issparse(normalised_matix):
-        normalised_matix = normalised_matix.toarray()
+    bins = peak_binning(peak_mz, tolerance=params["bin_tol"])
+    pooled_spectra, pooled_mz = pooling(AnnData.X, mz, bins)
+    _, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz)
 
+    normalized_matrix = tic_normalization(filtered_spectra)
 
-    matrix = reshaping_to_3d_matrix(AnnData, normalised_matix)
-# # print("Nonzeros:", np.count_nonzero(matrix))
-# plt.imshow(matrix[:, :, 94], cmap="hot", interpolation="nearest") # visualize the ion image for the peak at index 98 (closest to 647.47 m/z)
-# plt.colorbar()
-# plt.title("Ion Image for Peak 0")
-# plt.show()
-# print(np.max(matrix[:, :, 0]))
+    matrix = reshaping_to_3d_matrix(AnnData, normalized_matrix)
 
-    np.save("msi_matrix.npy", matrix)
+    np.save(f"{run_folder}/matrix.npy", matrix)
 
-
-# # Reshaping to 3D matrix with dimensions: (1469, 1007, 142)
-# # Reshaped matrix shape: (1469, 1007, 142) in 13.56 seconds
+    return {
+        "matrix_path": f"{run_folder}/matrix.npy",
+        "n_features": matrix.shape[-1]
+    }
