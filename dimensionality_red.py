@@ -57,14 +57,16 @@ def load_and_preprocess_msi(
     print(f"Loaded matrix shape: {matrix.shape}")
     
     # # apply spatial smoothing 
-    if matrix.ndim == 3:
-        matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1])
     #     # averages each pixel's spectrum with its neighbors
     #     # 3×3 pixel window spatially but no smoothing across the m/z dimension
 
     # rehsape 3d matrix
     if matrix.ndim == 3:
         height, width, n_peaks = matrix.shape
+
+        matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1]) # SMOOTHING
+        # averages each pixel's spectrum with its neighborspo
+        # 3×3 pixel window spatially but no smoothing across the m/z dimension
         X = matrix.reshape(height * width, n_peaks)
         print(f"Reshaped to: {X.shape}")
     else:
@@ -389,6 +391,9 @@ def perform_spca(X: np.array,
     alpha 0 = standard PCA, 1 = fully spatial
     """
     print("Performing SpatialPCA...")
+    # lowering reoslution so it can actually allocate matix to memory
+    # coords = coords[::10]
+    # X = X[::10]
     # normal pca
     pca = PCA(n_components=n_components, 
               svd_solver='randomized', 
@@ -644,6 +649,7 @@ def reconstruct_spatial_map(labels:pd.Series,
     spatial_map = np.full(height * width, -1)  # creates an empty array of the original size filled with -1 (background)
     # spatial_map[mask] = labels.values
     # labels from array to series to align with mask indexing
+    mask= mask[::10]
     spatial_map[mask] = labels
 
     # mask is boolean array which indicates which pixels are non-zero (from preprocessing)
@@ -672,7 +678,7 @@ def plot_spatial_map(spatial_map: np.ndarray,
     plt.show()
 
 
-def plot_elbow_method(umap_transformed: np.ndarray, k_range: range) -> None:
+def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:str) -> None:
     inertias = []
     # k_range = range(1, 10)
 
@@ -896,6 +902,15 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             run_folder=run_folder,
             start_time=start_time
         )
+    elif params["dimred"] == "full_spatial_pca":
+        coords = get_pixel_coords(mask, original_shape)
+        embedding = perform_spca(
+            X = matrix_scaled, 
+            coords = coords, 
+            n_components = params.get("n_components", 10),
+            bandwidth = 1.0, 
+            alpha = params.get("spatial_alpha", 0.5)
+        )
     else:
         raise ValueError(f"Unknown dimred method: {params['dimred']}")
 
@@ -906,6 +921,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             n_clusters=params["n_clusters"],
             random_state=params.get("random_state", 42)
         )
+        plot_elbow_method(embedding, k_range=range(1,15), run_folder=run_folder)
 
     elif params["clustering"] == "hdbscan":
         labels = hdbscan_clustering(embedding)
@@ -918,6 +934,8 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         save_pca_results(embedding, labels, f"{run_folder}\\pca_results.csv")
     elif params["dimred"] == "spca":
         save_spatial_pca_results(embedding, labels, f"{run_folder}_spca_results.csv")
+    elif params["dimred"] == "full_spatial_pca":
+        save_spatial_pca_results(embedding, labels, f"{run_folder}_full_spatial_pca_results.csv")
     else:
         save_umap_results(embedding, labels, f"{run_folder}\\umap_results.csv")
 

@@ -1,5 +1,9 @@
+import os 
+os.environ["NUMBA_DISABLE_INTEL_SVML"] = "1"
+
+
+
 import pandas as pd
-import os
 import time
 from preprocessing import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
@@ -7,7 +11,7 @@ from clustering_metrics import run_clustering_metrics
 
 results_folder = r"C:\Users\i6338212\data\results"
 results_csv = os.path.join(results_folder, "experiment_results.csv")
-
+print('here')
 
 # reduction_name = "OMP_pca10_k3_no_smoothing"
 
@@ -26,7 +30,7 @@ params = {
     "omp_coefs": 700,
     "bin_tol": 0.005,
 
-    "dimred": "spca",
+    "dimred": "full_spatial_pca",
     "n_components": 10,
 
     "clustering": "kmeans",
@@ -62,7 +66,8 @@ os.makedirs(run_folder, exist_ok=True)
 print(f"Results from {params['run_id']} will be saved to {run_folder}")
 
 start_time = time.perf_counter()
-preprocessing_output = run_preprocessing(params, run_folder)
+# preprocessing_output = run_preprocessing(params, run_folder)
+preprocessing_output = {"n_features": "173"}
 dimensionality_red_output = run_dimensionality_reduction(
     # r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy",
     r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",
