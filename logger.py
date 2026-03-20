@@ -5,7 +5,7 @@ from preprocessing import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
+results_folder = r"C:\Users\i6338212\data\results"
 results_csv = os.path.join(results_folder, "experiment_results.csv")
 
 
