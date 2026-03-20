@@ -39,8 +39,8 @@ def compute_average_spectrum(
         ):
     
     print("computing average spectrum...")
-    data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
-    # data = spatial_data["msi_dataset_z0"]
+    # data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
+    data = spatial_data["msi_dataset_z0"]
     mz = data.var["mz"].values
     avg_intensity = data.uns["average_spectrum"] # unstructured annotation within anndata object
     # average intensity at each m/z across all pixels
@@ -350,6 +350,8 @@ def peak_detection_omp(mz,
     peak_mz = candidate_mz[selected_idxs]
     peak_intensities = avg_intensity[candidate_idxs[selected_idxs]]
 
+    pd.DataFrame({"mz": peak_mz}).to_csv(f"{run_folder}\\peak_mz_values.csv", index=False)
+
     print(f"Detected {len(peak_mz)} peaks in {time.perf_counter() - start_time:.2f} seconds")
     return peak_mz, peak_intensities
 
@@ -378,6 +380,7 @@ def peak_binning(
 
     bins.append(np.mean(current_bin)) # add the last bin after the loop
     print(f"Binned peaks into {len(bins)} bins in {time.perf_counter() - start_time:.2f} seconds")
+    pd.DataFrame({"mz": bins}).to_csv(f"{run_folder}\\binned_mz_values.csv", index=False)
     return np.array(bins)
 
 def pooling(
@@ -396,6 +399,7 @@ def pooling(
         ]
     pooled_spectra = aligned_matrix[:, peak_idxs] # extract columns corresponding to the binned peaks
     pooled_mz = mz_axis[peak_idxs]
+
    
     print(f"Pooled spectra with {len(bins)} peaks in {time.perf_counter() - start_time:.2f} seconds")
     return pooled_spectra, pooled_mz
@@ -415,6 +419,10 @@ def filtering(
 
     filtered_spectra = pooled_spectra[:, valid_peaks]
     filtered_mz = pooled_mz[valid_peaks]
+    pd.DataFrame({"mz": filtered_mz}).to_csv(
+        f"{run_folder}\\filtered_mz_values.csv",
+        index=False
+    )
     # print("Threshold:", threshold)
     # print("Max presence:", np.max(presence))
     # print("Median presence:", np.median(np.array(presence).flatten()))

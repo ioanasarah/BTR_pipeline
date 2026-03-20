@@ -7,21 +7,21 @@ import pandas as pd
 
 
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-preprocessing_run_name = "small_computer_xenium_omp"
-reduction_name = "pca_10_components_k3_5x5_smoothing"
-run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
-os.makedirs(run_folder, exist_ok=True)
+# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+# preprocessing_run_name = "small_computer_xenium_omp"
+# reduction_name = "pca_10_components_k3_5x5_smoothing"
+# run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
+# os.makedirs(run_folder, exist_ok=True)
 
 
 start_time = time.perf_counter()
 
-data = pd.read_csv(f"{run_folder}/pca_results.csv")
-print("Data loaded in {:.2f} seconds".format(time.perf_counter() - start_time))
+# data = pd.read_csv(f"{run_folder}/pca_results.csv")
+# print("Data loaded in {:.2f} seconds".format(time.perf_counter() - start_time))
 
-labels = data.iloc[:, -1] # cluster labels are in the last column
-pca_transformed = data.iloc[:, :-1] # umap embeddings in the first two columns
-print("Extracted labels and embeddings in {:.2f} seconds".format(time.perf_counter() - start_time))
+# labels = data.iloc[:, -1] # cluster labels are in the last column
+# pca_transformed = data.iloc[:, :-1] # umap embeddings in the first two columns
+# print("Extracted labels and embeddings in {:.2f} seconds".format(time.perf_counter() - start_time))
 
 
 def percentage_abnormal_edge_pixels(spatial_map) -> float:

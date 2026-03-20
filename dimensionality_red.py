@@ -28,7 +28,7 @@ from scipy.sparse.linalg import eigsh
 
 
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
 
 
 
@@ -743,82 +743,82 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range) -> None:
 # peak picking: baseline, smoothing, 
 
 
-if __name__ == "__main__":
-    folder_name = "xenium_laptop"
-    run_folder = os.path.join(
-        results_folder,
-        folder_name,
-        "xenium_OMP_spca10_k5_smoothing"
-    )
-#     # run_timer(stop_event)
-    file_path = r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy"
-    matrix_scaled, mask, original_shape = load_and_preprocess_msi(file_path=file_path, 
-                                                            run_folder=run_folder,
-                                                              remove_zero_pixels=True,
-                                                              save_raw=f"{run_folder}\\matrix_raw.npy",
-                                                              save_scaled=f"{run_folder}\\matrix_scaled.npy")
-#     # matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
-#     # mask = np.load(f"{run_folder}\\mask.npy")
-#     # original_shape = mask.shape
-    print(f"Loaded matrix with shape {original_shape}. Scaled matrix has shape {matrix_scaled.shape}")
-#     # pca_transformed = perform_pca(matrix_scaled, n_components=10)
-#     # save_preprocessed_matrix(pca_transformed, f"{run_folder}\\matrix_pca.npy")
+# if __name__ == "__main__":
+#     folder_name = "xenium_laptop"
+#     run_folder = os.path.join(
+#         results_folder,
+#         folder_name,
+#         "xenium_OMP_spca10_k5_smoothing"
+#     )
+# #     # run_timer(stop_event)
+#     file_path = r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy"
+#     matrix_scaled, mask, original_shape = load_and_preprocess_msi(file_path=file_path, 
+#                                                             run_folder=run_folder,
+#                                                               remove_zero_pixels=True,
+#                                                               save_raw=f"{run_folder}\\matrix_raw.npy",
+#                                                               save_scaled=f"{run_folder}\\matrix_scaled.npy")
+# #     # matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
+# #     # mask = np.load(f"{run_folder}\\mask.npy")
+# #     # original_shape = mask.shape
+#     print(f"Loaded matrix with shape {original_shape}. Scaled matrix has shape {matrix_scaled.shape}")
+# #     # pca_transformed = perform_pca(matrix_scaled, n_components=10)
+# #     # save_preprocessed_matrix(pca_transformed, f"{run_folder}\\matrix_pca.npy")
 
-    coords = get_pixel_coords(mask, original_shape)
-    embedding, explained = spatial_pca_sparse(
-            X = matrix_scaled, 
-            coords = coords,
-            n_components= 10,
-            alpha = 0.5,
-            connectivity = 4, 
-            chunk_size= 50_000,
-            run_folder=run_folder,
-            start_time=start_time
-        )
+#     coords = get_pixel_coords(mask, original_shape)
+#     embedding, explained = spatial_pca_sparse(
+#             X = matrix_scaled, 
+#             coords = coords,
+#             n_components= 10,
+#             alpha = 0.5,
+#             connectivity = 4, 
+#             chunk_size= 50_000,
+#             run_folder=run_folder,
+#             start_time=start_time
+#         )
     
 
-#     # read umap from csv if already done to save time
-#     # umap_file_path = f"{run_folder}\\umap_results.csv"
-#     # umap_transformed = pd.read_csv(umap_file_path).iloc[:, :2].values
-#     # labels = pd.read_csv(umap_file_path).iloc[:, 2].values
+# #     # read umap from csv if already done to save time
+# #     # umap_file_path = f"{run_folder}\\umap_results.csv"
+# #     # umap_transformed = pd.read_csv(umap_file_path).iloc[:, :2].values
+# #     # labels = pd.read_csv(umap_file_path).iloc[:, 2].values
     
    
-#     # if os.path.exists(f"{run_folder}\\umap_results.csv"):
-#     #     print(f"Loading UMAP results from {f"{run_folder}\\umap_results.csv"}...")
-#     #     umap_df = pd.read_csv(f"{run_folder}\\umap_results.csv")
-#     #     umap_transformed = umap_df.iloc[:, :2].values
-#     #     labels = umap_df.iloc[:, 2].values
-#     #     print("UMAP results loaded successfully.")
-#     # else:
-#     #     umap_transformed = perform_umap(
-#     #         matrix_scaled, 
-#     #         n_neighbors=15, 
-#     #         min_dist=0.1, 
-#     #         n_components=2, 
-#     #         metric='euclidean', #can change to cosine to be faster
-#     #         # random_state=42, 
-#     #         supervised=False)
-#     #     labels = kmeans_clustering(matrix=umap_transformed, n_clusters=2, random_state=42, n_init=10, init='k-means++')
-#     #     save_umap_results(umap_transformed, labels, f"{run_folder}\\umap_results.csv")
+# #     # if os.path.exists(f"{run_folder}\\umap_results.csv"):
+# #     #     print(f"Loading UMAP results from {f"{run_folder}\\umap_results.csv"}...")
+# #     #     umap_df = pd.read_csv(f"{run_folder}\\umap_results.csv")
+# #     #     umap_transformed = umap_df.iloc[:, :2].values
+# #     #     labels = umap_df.iloc[:, 2].values
+# #     #     print("UMAP results loaded successfully.")
+# #     # else:
+# #     #     umap_transformed = perform_umap(
+# #     #         matrix_scaled, 
+# #     #         n_neighbors=15, 
+# #     #         min_dist=0.1, 
+# #     #         n_components=2, 
+# #     #         metric='euclidean', #can change to cosine to be faster
+# #     #         # random_state=42, 
+# #     #         supervised=False)
+# #     #     labels = kmeans_clustering(matrix=umap_transformed, n_clusters=2, random_state=42, n_init=10, init='k-means++')
+# #     #     save_umap_results(umap_transformed, labels, f"{run_folder}\\umap_results.csv")
    
-#     # if os.path.exists(f"{run_folder}\\pca_results.csv"):
-#     #     # print(f"Loading PCA results from {f"{run_folder}\\pca_results.csv"}...")
-#     #     pca_df = pd.read_csv(f"{run_folder}\\pca_results.csv")
-#     #     pca_transformed = pca_df.iloc[:, :-1].values
-#     #     labels = pca_df.iloc[:, -1].values
-#     #     print("PCA results loaded successfully.")
-#     # else:
-#     #     pca_transformed, loadings, explained = perform_pca(matrix_scaled, n_components=10)
-#     #     labels = kmeans_clustering(matrix=pca_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
-#     #     save_pca_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
+# #     # if os.path.exists(f"{run_folder}\\pca_results.csv"):
+# #     #     # print(f"Loading PCA results from {f"{run_folder}\\pca_results.csv"}...")
+# #     #     pca_df = pd.read_csv(f"{run_folder}\\pca_results.csv")
+# #     #     pca_transformed = pca_df.iloc[:, :-1].values
+# #     #     labels = pca_df.iloc[:, -1].values
+# #     #     print("PCA results loaded successfully.")
+# #     # else:
+# #     #     pca_transformed, loadings, explained = perform_pca(matrix_scaled, n_components=10)
+# #     #     labels = kmeans_clustering(matrix=pca_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
+# #     #     save_pca_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
 
-#     pca_transformed, loadings, explained = perform_pca(matrix_scaled, n_components=10)
-#     labels = kmeans_clustering(matrix=pca_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
-#     save_pca_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
-#     # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=, seed=42)
-#     # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=20)
+# #     pca_transformed, loadings, explained = perform_pca(matrix_scaled, n_components=10)
+# #     labels = kmeans_clustering(matrix=pca_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
+# #     save_pca_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
+# #     # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=, seed=42)
+# #     # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=20)
 
-    plot_elbow_method(embedding, k_range=range(1,15))
+#     plot_elbow_method(embedding, k_range=range(1,15))
 
 # # redo all the first ones i did !!
 #     # labels = kmeans_clustering(matrix=pca_transformed, n_clusters=5, random_state=42, n_init=10, init='k-means++')

@@ -15,9 +15,10 @@ results_csv = os.path.join(results_folder, "experiment_results.csv")
 # os.makedirs(run_folder, exist_ok=True)
 
 params = {
-    "dataset": "xenium",
-    "computer": "laptop",
-    "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    "dataset": "hippocampus",
+    "computer": "PC",
+    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
 
     "smoothing": None,
     "peak_method": "OMP",
@@ -29,7 +30,7 @@ params = {
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters": 2
+    "n_clusters": 4
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -63,7 +64,8 @@ print(f"Results from {params['run_id']} will be saved to {run_folder}")
 start_time = time.perf_counter()
 preprocessing_output = run_preprocessing(params, run_folder)
 dimensionality_red_output = run_dimensionality_reduction(
-    r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy",
+    # r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy",
+    r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",
     params, 
     run_folder)
 metrics_output = run_clustering_metrics(dimensionality_red_output, run_folder, params)
