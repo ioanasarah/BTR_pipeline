@@ -7,11 +7,11 @@ from statsmodels.stats.multitest import multipletests
 import matplotlib.pyplot as plt
 import plotly.express as px
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-preprocessing_run_name = "small_computer_xenium_omp"
-reduction_name = "pca_10_components_k3_no_smoothing"
-run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
-os.makedirs(run_folder, exist_ok=True)
+# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+# preprocessing_run_name = "small_computer_xenium_omp"
+# reduction_name = "pca_10_components_k3_no_smoothing"
+# run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
+# os.makedirs(run_folder, exist_ok=True)
 
 
 start_time = time.perf_counter()

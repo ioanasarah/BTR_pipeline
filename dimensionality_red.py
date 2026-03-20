@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import os
 import umap
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, NMF
 import matplotlib
 matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
@@ -56,9 +56,9 @@ def load_and_preprocess_msi(
     original_shape = (matrix.shape[0], matrix.shape[1]) if matrix.ndim == 3 else None
     print(f"Loaded matrix shape: {matrix.shape}")
     
-    # # apply spatial smoothing 
+    # # apply spatial smooothing 
     #     # averages each pixel's spectrum with its neighbors
-    #     # 3×3 pixel window spatially but no smoothing across the m/z dimension
+    #     # 3×3 pixel window spatially but no smooothing across the m/z dimension
 
     # rehsape 3d matrix
     if matrix.ndim == 3:
@@ -66,7 +66,7 @@ def load_and_preprocess_msi(
 
         matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1]) # SMOOTHING
         # averages each pixel's spectrum with its neighborspo
-        # 3×3 pixel window spatially but no smoothing across the m/z dimension
+        # 3×3 pixel window spatially but no smooothing across the m/z dimension
         X = matrix.reshape(height * width, n_peaks)
         print(f"Reshaped to: {X.shape}")
     else:
@@ -97,7 +97,7 @@ def load_and_preprocess_msi(
 
     print(f"Scaling completed in {time.perf_counter() - start_time:.2f} seconds")
     
-    return X_scaled, mask, original_shape
+    return X_scaled, X, mask, original_shape
 
 
 def subset_matrix(matrix: np.ndarray, subset_size: int = 50_000, seed: int = 42) -> np.ndarray:
@@ -561,6 +561,22 @@ def save_spatial_pca_results(embedding: np.ndarray,
     df.to_csv(save_path, index=False)
     print(f"Spatial PCA results saved to {save_path}")
 
+
+def peform_nmf(X: np.ndarray, n_components: int, max_iterations: int) -> np.ndarray:
+    print("Performing NMF dimensionality reduction...")
+    nmf = NMF(n_components=n_components, 
+            #   svd_solver='auto', 
+              init = "nndsvda", 
+              max_iter = max_iterations,
+              random_state=42)
+
+    W=nmf.fit_transform(X)
+    H = nmf.components_
+
+    return W, H, nmf
+
+
+
 def kmeans_clustering(matrix: np.ndarray, 
                       n_clusters: int,
                       random_state: Optional[int]=None,
@@ -649,7 +665,7 @@ def reconstruct_spatial_map(labels:pd.Series,
     spatial_map = np.full(height * width, -1)  # creates an empty array of the original size filled with -1 (background)
     # spatial_map[mask] = labels.values
     # labels from array to series to align with mask indexing
-    mask= mask[::10]
+    # mask= mask[::10]
     spatial_map[mask] = labels
 
     # mask is boolean array which indicates which pixels are non-zero (from preprocessing)
@@ -867,7 +883,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     os.makedirs(run_folder,     exist_ok=True)
 
     # preprocessing
-    matrix_scaled, mask, original_shape = load_and_preprocess_msi(
+    matrix_scaled, matrix_nmf, mask, original_shape = load_and_preprocess_msi(
         file_path=file_path,
         run_folder=run_folder,
         remove_zero_pixels=params.get("remove_zero_pixels", True),
@@ -910,6 +926,12 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             n_components = params.get("n_components", 10),
             bandwidth = 1.0, 
             alpha = params.get("spatial_alpha", 0.5)
+        )
+    elif params["dimred"] == "nmf":
+        embedding, H, nmf = peform_nmf(
+            X = matrix_nmf,
+            n_components=params.get("n_components", 20),
+            max_iterations=6000
         )
     else:
         raise ValueError(f"Unknown dimred method: {params['dimred']}")
@@ -954,7 +976,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
 
     return {
         "embedding": embedding,
-        "explained_variance": explained,
+        # "explained_variance": Optional = explained,
         # "spatial_map_file_path": ,
         "labels": labels,
         "run_name": params["run_id"],
