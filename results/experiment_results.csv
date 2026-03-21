@@ -21,3 +21,6 @@ xenium_OMP_pca10_k4_smoothing,xenium,OMP,5x5,0.005,pca,10,kmeans,4,144,160.89475
 xenium_OMP_pca10_k4,xenium,OMP,,0.005,pca,10,kmeans,4,144,209.1961111,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,2.542674037,40487.93434,62.34166764
 xenium_OMP_spca10_k4,xenium,OMP,,0.005,spca,10,kmeans,4,144,191.9754353,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,2.648114976,44016.24736,55.31759507
 xenium_OMP_spca10_k4_smoothing,xenium,OMP,5x5,0.005,spca,10,kmeans,4,144,144.4016594,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,1.372905448,430365.5295,2.771482693
+xenium_OMP_pca_umap10_k4,xenium,OMP,,0.005,pca_umap,10,kmeans,4,144,288.5922725,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,2.212973342,60102.76624,82.53029422
+xenium_OMP_pca_umap10_k5_smoothing,xenium,OMP,5x5,0.005,pca_umap,10,kmeans,5,144,298.7400118,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,5,1.267309559,1617942.821,10.84766055
+xenium_OMP_pca_umap10_k2_smoothing,xenium,OMP,5x5,0.005,pca_umap,10,kmeans,2,144,274.7456667,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,2,0.297551479,2809757.472,0.03746955
