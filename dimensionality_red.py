@@ -9,9 +9,11 @@ import pandas as pd
 import os
 import umap
 from sklearn.decomposition import PCA, NMF
+from sklearn.neighbors import NearestNeighbors
 import matplotlib
 matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 import plotly.express as px
 import plotly.graph_objects as go
 import sklearn 
@@ -19,6 +21,7 @@ from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, HDBSCAN
 from scipy.ndimage import uniform_filter 
 from scipy.stats import f_oneway
 from scipy.spatial.distance import cdist
+from scipy.linalg import eigh
 import statsmodels
 from statsmodels.stats.multitest import multipletests
 import scipy.sparse as sp
@@ -28,7 +31,7 @@ from scipy.sparse.linalg import eigsh
 
 
 
-results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
+# results_folder = r"C:\Users\i6338212\data\results" # change folder path as needed
 
 
 
@@ -39,7 +42,9 @@ results_folder = r"C:\Users\i6338212\data\results" # change folder path as neede
 
 start_time = time.perf_counter()
 
-print("Loaded packages! Starting dimensionality reduction...")
+# print("Loaded packages! Starting dimensionality reduction...")
+
+print("Loaded packages for dimensionality reduction and clustering")
 
 
 def load_and_preprocess_msi(
@@ -47,8 +52,7 @@ def load_and_preprocess_msi(
     run_folder: str,
     remove_zero_pixels: bool = True,
     save_raw: Optional[str] = None,
-    save_scaled: Optional[str] = None
-) -> Tuple[np.ndarray, np.ndarray, Tuple[int, int]]: 
+    save_scaled: Optional[str] = None): 
 
     
     # Load matrix
@@ -64,21 +68,38 @@ def load_and_preprocess_msi(
     if matrix.ndim == 3:
         height, width, n_peaks = matrix.shape
 
-        matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1]) # SMOOTHING
+        # matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1]) # SMOOTHING
         # averages each pixel's spectrum with its neighborspo
         # 3×3 pixel window spatially but no smooothing across the m/z dimension
+
+        noise_3d = np.zeros_like(matrix)
+
+        # diagonal neighbour difference
+        noise_3d[:-1, :-1, :] = matrix[:-1, :-1, :] - matrix[1:, 1:, :]
+
+        # flatten to match X
+        noise = noise_3d.reshape(-1, n_peaks)
+
         X = matrix.reshape(height * width, n_peaks)
         print(f"Reshaped to: {X.shape}")
     else:
         X = matrix
+        noise = None
+    # # compute noise for MNF
+    # height, width = X.shape
+
+    # noise = np.zeros_like(X)
+
+    # # diagonal neighbour difference
+    # noise[:-1, :-1, :] = matrix[:-1, :-1, :] - matrix[1:, 1:, :]
+
+    # # flatten 
+    # noise = noise.reshape(-1, n_peaks)
     
     # Remove zero pixels (important for MSI)
-    if remove_zero_pixels:
-        mask = np.sum(X, axis=1) > 0
-        X = X[mask]
-        print(f"Shape after removing zero pixels: {X.shape}")
-    else:
-        mask = None
+    mask = np.sum(X, axis=1) > 0
+    X = X[mask]
+    noise = noise[mask]
     # save mask
     np.save(f"{run_folder}\\mask.npy", mask)
     print(f"Mask saved to {run_folder}\\mask.npy")
@@ -97,15 +118,13 @@ def load_and_preprocess_msi(
 
     print(f"Scaling completed in {time.perf_counter() - start_time:.2f} seconds")
     
-    return X_scaled, X, mask, original_shape
+    return X_scaled, X, mask, original_shape, noise
 
 
 def subset_matrix(matrix: np.ndarray, subset_size: int = 50_000, seed: int = 42) -> np.ndarray:
     rng = np.random.default_rng(seed) # using seed to get the same random subset each time for reproducibility
     idx = rng.choice(matrix.shape[0], size=subset_size, replace=False)
     return matrix[idx], idx  
-
-
 
 def perform_umap(X: np.ndarray, 
                 y: Optional[pd.Series] = None,
@@ -194,7 +213,6 @@ def save_pca_results(pca_transformed: np.array,
     pca_df["cluster"] = labels
     
     pca_df.to_csv(save_path, index=False)
-
 
 def save_preprocessed_matrix(matrix: np.ndarray, save_path: str) -> None:
     np.save(save_path, matrix)
@@ -290,6 +308,99 @@ def plot_umap_plotly(umap_transformed: np.ndarray,
         print(f"Interactive plot saved to {save_html}. Took {time.perf_counter() - start_time:.2f} seconds")
     
     return fig
+
+def plot_pca_plotly(pca_transformed: np.ndarray, 
+                    labels: pd.Series,
+                    data: Optional[pd.DataFrame] = None,
+                    title: str = "Interactive UMAP Visualization",
+                    height: int = 800,
+                    width: int = 1000,
+                    point_size: int = 5,
+                    opacity: float = 0.7,
+                    color_discrete_sequence: Optional[list[str]] = None,
+                    save_html: Optional[str] = None) -> go.Figure:
+    """
+    Create an interactive Plotly visualization of PCA results.
+    
+    Args:
+        umap_transformed: UMAP-transformed data
+        labels: Cluster labels
+        data: Original dataframe (optional, for hover data)
+        title: Plot title
+        height, width: Figure dimensions
+        point_size: Size of scatter points
+        opacity: Point opacity
+        color_discrete_sequence: Custom color sequence
+        save_html: Path to save HTML (None to skip saving)
+        
+    Returns:
+        Plotly figure object
+    """
+    print("Creating interactive UMAP visualization with Plotly...")
+
+    # Create a dataframe for Plotly
+    df_plot = pd.DataFrame({
+        'PCA_1': pca_transformed[:, 0],
+        'PCA_2': pca_transformed[:, 1],
+        'Cluster': labels.astype(str)
+    })
+    
+    # Add additional hover information if original data provided
+    hover_data = None
+    if data is not None:
+        # Reset index to ensure alignment
+        data = data.reset_index(drop=True)
+        df_plot = df_plot.reset_index(drop=True)
+        
+        # Add Cell-ID and coordinates if available
+        if 'Cell-ID' in data.columns:
+            df_plot['Cell_ID'] = data['Cell-ID']
+        
+        if 'X centroid' in data.columns and 'Y centroid' in data.columns:
+            df_plot['X_pos'] = data['X centroid']
+            df_plot['Y_pos'] = data['Y centroid']
+            
+        hover_data = ['Cell_ID', 'X_pos', 'Y_pos']
+    
+    # Create the plot
+    fig = px.scatter(
+        df_plot, 
+        x='PCA_1', 
+        y='PCA_2',
+        color='Cluster',
+        hover_data=hover_data,
+        color_discrete_sequence=color_discrete_sequence,
+        opacity=opacity,
+        height=height,
+        width=width,
+        title=title
+    )
+    
+    # Customize the plot
+    fig.update_traces(marker=dict(size=point_size))
+    
+    # Improve layout
+    fig.update_layout(
+        legend_title_text='Cluster',
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=1.01,
+            itemsizing='constant'
+        ),
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+    
+    # Save as HTML if requested
+    if save_html:
+        fig.write_html(save_html)
+        print(f"Interactive plot saved to {save_html}. Took {time.perf_counter() - start_time:.2f} seconds")
+
+    return fig
+
+
+
 def plot_pca_3d(pca_transformed: np.ndarray,
                 labels: pd.Series,
                 explained_variance: Optional[np.ndarray] = None,
@@ -577,8 +688,139 @@ def peform_nmf(X: np.ndarray, n_components: int, max_iterations: int) -> np.ndar
 
     return W, H, nmf
 
+def save_nmf_results(W: np.ndarray,
+                     labels: pd.Series,
+                     save_path: str):
+    
+    nmf_df = pd.DataFrame(
+        W,
+        columns=[f"NMF{i+1}" for i in range(W.shape[1])]
+    )
+    
+    nmf_df["cluster"] = labels.values
+    
+    nmf_df.to_csv(save_path, index=False)
+
+def plot_nmf_plotly(W: np.ndarray,
+                    labels: pd.Series,
+                    run_folder: str,
+                    run_name: str):
+
+    df = pd.DataFrame({
+        "NMF1": W[:, 0],
+        "NMF2": W[:, 1],
+        "cluster": labels.values.astype(str)  
+    })
+
+    fig = px.scatter(
+        df,
+        x="NMF1",
+        y="NMF2",
+        color="cluster",
+        title=f"NMF Embedding - {run_name}",
+        color_discrete_sequence=px.colors.qualitative.Set1
+    )
+
+    fig.write_html(f"{run_folder}\\nmf_plot.html")
+    fig.show()
+
+def perform_mnf(X, 
+                coords, 
+                noise, 
+                mask, 
+                n_components
+                ):
+    
+    print("Performing MNF...")
+    # noise already estimated from loading function 
+    
+    # compute covariance matrices
+    A = np.cov(X, rowvar=False) # A is covariance of data 
+    B = np.cov(noise, rowvar=False) / 2 # B is covariance of noise 
+    # cov of differences = 2 * noise cov, so divide by 2
+
+    # solve generalised eigenproblem 
+    eigvals, eigvecs = eigh(A, B)
+
+    # sort components so we get highest SNR first 
+    idx = np.argsort(eigvals)[::-1]
+    eigvals = eigvals[idx]
+    eigvecs = eigvecs[:, idx]
+
+    # select top n_components 
+    top_components = eigvecs[:, :n_components]
+     
+    # project data 
+    Z = X @ top_components
+
+    Z = StandardScaler().fit_transform(Z)
+
+    return Z, top_components, eigvals
+
+def plot_mnf_plotly(Z: np.ndarray,
+                    labels: pd.Series,
+                    run_folder: str,
+                    run_name: str):
+
+    df = pd.DataFrame({
+        "MNF1": Z[:, 0],
+        "MNF2": Z[:, 1],
+        "cluster": labels.values.astype(str)  
+    })
+
+    fig = px.scatter(
+        df,
+        x="MNF1",
+        y="MNF2",
+        color="cluster",
+        title=f"MNF Embedding - {run_name}",
+        color_discrete_sequence=px.colors.qualitative.Set1
+    )
+
+    fig.write_html(f"{run_folder}\\mnf_plot.html")
+    fig.show()
+
+def plot_mnf_spatially(Z, 
+                       mask, 
+                       original_shape, 
+                       run_folder, 
+                       n_components=3):
+    height, width = original_shape
+
+    for i in range(n_components):
+        spatial_map = np.full(height * width, -1) 
+        spatial_map[mask] = Z[:, i]
+
+        spatial_map = spatial_map.reshape(height, width)
+
+        plt.figure(figsize=(6, 5))
+        plt.imshow(spatial_map, cmap="viridis")
+        plt.colorbar(label=f"MNF {i+1}")
+        plt.title(f"MNF Component {i+1}")
+        plt.axis("off")
+
+        save_path = f"{run_folder}\\mnf_component_{i+1}.png"
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
+        print(f"Saved: {save_path}")
+        plt.show()
 
 
+def save_mnf_results(Z, labels, save_path):
+    mnf_df = pd.DataFrame(
+        Z,
+        columns=[f"MNF{i+1}" for i in range(Z.shape[1])]
+    )
+
+    mnf_df["cluster"] = labels
+
+    mnf_df.to_csv(save_path, index=False)
+
+    print(f"MNF results saved to {save_path}")
+
+
+
+# CLUSTERING
 def kmeans_clustering(matrix: np.ndarray, 
                       n_clusters: int,
                       random_state: Optional[int]=None,
@@ -679,12 +921,53 @@ def reconstruct_spatial_map(labels:pd.Series,
 
 def plot_spatial_map(spatial_map: np.ndarray,
                      title: str, 
-                     run_folder: str):
+                     run_folder: str, 
+                     n_clusters):
     print( "Plotting spatial map of clusters...")
+    # colors = ["black"]  # background
+    
+    cluster_colours = [
+        "red", "blue", "green", "yellow", "purple",
+        "orange", "cyan", "magenta", "lime", "brown", 
+        "pink", "white", "purple"
+    ]
+    
+    # colors += base_colors[n_clusters]
+
+    spatial_map_shifted = spatial_map + 1
+
+
+    # print("Unique values in spatial_map:", np.unique(spatial_map))
+    # print("Unique values in spatial_map_shifted:", np.unique(spatial_map_shifted))
+
+
+    colours = ["black"] + cluster_colours[:n_clusters]
+    cmap = ListedColormap(colours)
+
+    
     fig, ax = plt.subplots(figsize=(10, 8))
 
-    image = ax.imshow(spatial_map, cmap='tab10', interpolation='nearest')
-    plt.colorbar(image, ax=ax, label="Cluster")
+    # image = ax.imshow(spatial_map_shifted, cmap='tab10', interpolation='nearest')
+
+    image = ax.imshow(
+            spatial_map_shifted,
+            cmap=cmap,
+            interpolation='nearest',
+            vmin=0
+            # vmax=n_clusters + 2
+        )
+
+    tick_positions = np.arange(n_clusters + 1)
+
+    cbar = plt.colorbar(image, ax=ax, ticks=tick_positions)
+
+    cbar.set_ticklabels(
+        ["bg"] + [str(i) for i in range(1, n_clusters + 1)]
+    )
+    # cbar.set_ticklabels(["0 (bg)"] + [str(i) for i in range(1, n_clusters + 1)])
+    cbar.set_label("Cluster")
+
+    # plt.colorbar(image, ax=ax, label="Cluster")
     ax.set_title(title, fontsize=14)
     ax.set_xlabel("X (pixels)", fontsize=12)
     ax.set_ylabel("Y (pixels)", fontsize=12)
@@ -885,7 +1168,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     os.makedirs(run_folder,     exist_ok=True)
 
     # preprocessing
-    matrix_scaled, matrix_nmf, mask, original_shape = load_and_preprocess_msi(
+    matrix_scaled, matrix_nmf, mask, original_shape, noise = load_and_preprocess_msi(
         file_path=file_path,
         run_folder=run_folder,
         remove_zero_pixels=params.get("remove_zero_pixels", True),
@@ -935,6 +1218,15 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             n_components=params.get("n_components", 20),
             max_iterations=6000
         )
+    elif params["dimred"] == "mnf":
+        coords = get_pixel_coords(mask, original_shape)
+        embedding, top_components, eigvals = perform_mnf(
+            X = matrix_scaled,
+            coords = coords, 
+            noise = noise,  
+            mask=mask,
+            n_components=params.get("n_components", 10)
+        )
     else:
         raise ValueError(f"Unknown dimred method: {params['dimred']}")
 
@@ -953,26 +1245,75 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     else:
         raise ValueError(f"Unknown clustering method")
 
-    # save results
+    # save results and plot
     if params["dimred"] == "pca":
         save_pca_results(embedding, labels, f"{run_folder}\\pca_results.csv")
+        plot_pca_plotly(
+        embedding,
+        labels,
+        title=f"{params['dimred']} dimensionality reduction - {params['run_id']}",
+        save_html=f"{run_folder}\\plot.html"
+        )   
     elif params["dimred"] == "spca":
-        save_spatial_pca_results(embedding, labels, f"{run_folder}_spca_results.csv")
+        save_spatial_pca_results(embedding, labels, f"{run_folder}\\spca_results.csv")
+        plot_pca_plotly(
+        pca_transformed=embedding,
+        labels = labels,
+        title=f"{params['dimred']} dimensionality reduction - {params['run_id']}",
+        save_html=f"{run_folder}\\plot_2d.html"
+        )
+        plot_pca_3d(
+            pca_transformed = embedding, 
+            labels = labels, 
+            explained_variance=explained, 
+            title = f"{params['dimred']} dimensionality_reduction - {params['run_id']}",
+            save_html=f"{run_folder}\\plot_3d.html")
     elif params["dimred"] == "full_spatial_pca":
-        save_spatial_pca_results(embedding, labels, f"{run_folder}_full_spatial_pca_results.csv")
+        save_spatial_pca_results(embedding, labels, f"{run_folder}\\full_spatial_pca_results.csv")
+        plot_pca_plotly(
+        pca_transformed=embedding,
+        labels = labels,
+        title=f"{params['dimred']} dimensionality reduction - {params['run_id']}",
+        save_html=f"{run_folder}\\plot_2d.html"
+        )
+        plot_pca_3d(
+            pca_transformed = embedding, 
+            labels = labels, 
+            explained_variance=explained, 
+            title = f"{params['dimred']} dimensionality_reduction - {params['run_id']}",
+            save_html=f"{run_folder}\\plot_3d.html")
+    elif params["dimred"] == "nmf":
+        save_nmf_results(embedding, labels, f"{run_folder}\\nmf_results.csv")
+        plot_nmf_plotly(
+            embedding, 
+            labels, 
+            run_folder
+        )
+    elif params["dimred"] == "mnf":
+        save_mnf_results(embedding, 
+                         labels, 
+                         f"{run_folder}\\mnf_results.csv")
+        plot_mnf_plotly(embedding, 
+                        labels, 
+                        run_folder, 
+                        params["run_id"])
+        plot_mnf_spatially(embedding, 
+                           mask, 
+                           original_shape, 
+                           run_folder, 
+                           params["n_components"])
     else:
         save_umap_results(embedding, labels, f"{run_folder}\\umap_results.csv")
-
-    # plotting
-    plot_umap_plotly(
+        plot_umap_plotly(
         embedding,
         labels,
         title=f"{params['dimred']}dimensionality reduction - {params['run_id']}",
         save_html=f"{run_folder}\\plot.html"
     )
+    
 
     spatial_map = reconstruct_spatial_map(labels, mask, original_shape, run_folder, params['run_id'])
-    plot_spatial_map(spatial_map, title=f"Spatial Map - {params['run_id']}", run_folder=run_folder)
+    plot_spatial_map(spatial_map, title=f"Spatial Map - {params['run_id']}", run_folder=run_folder, n_clusters=params["n_clusters"])
 
     runtime = time.perf_counter() - start_time
 

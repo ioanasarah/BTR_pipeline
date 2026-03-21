@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pandas as pd
 
-
+print("Loaded packages for calculating clustering metrics")
 
 # results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
 # preprocessing_run_name = "small_computer_xenium_omp"

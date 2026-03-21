@@ -13,6 +13,8 @@ import plotly.express as px
 # run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
 # os.makedirs(run_folder, exist_ok=True)
 
+print("Loaded packages for feature selection")
+
 
 start_time = time.perf_counter()
 

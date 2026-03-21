@@ -15,10 +15,10 @@ import scipy.sparse
 from scipy.sparse import issparse
 # import msiwarp as mw
 
-print("Loaded packages! Starting preprocessing...")
+print("Loaded packages for preprocessing")
 
-# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-results_folder = r"C:\Users\i6338212\data\results"
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+# results_folder = r"C:\Users\i6338212\data\results"
 preprocessing_run_name = "small_computer_xenium_omp"
 run_folder = os.path.join(results_folder, preprocessing_run_name)
 os.makedirs(run_folder, exist_ok=True)
@@ -39,8 +39,8 @@ def compute_average_spectrum(
         ):
     
     print("computing average spectrum...")
-    # data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
-    data = spatial_data["msi_dataset_z0"]
+    data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
+    # data = spatial_data["msi_dataset_z0"]
     mz = data.var["mz"].values
     avg_intensity = data.uns["average_spectrum"] # unstructured annotation within anndata object
     # average intensity at each m/z across all pixels

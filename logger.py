@@ -9,9 +9,10 @@ from preprocessing import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 
-results_folder = r"C:\Users\i6338212\data\results"
+# results_folder = r"C:\Users\i6338212\data\results"
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
 results_csv = os.path.join(results_folder, "experiment_results.csv")
-print('here')
+
 
 # reduction_name = "OMP_pca10_k3_no_smoothing"
 
@@ -19,22 +20,22 @@ print('here')
 # os.makedirs(run_folder, exist_ok=True)
 
 params = {
-    "dataset": "hippocampus",
-    "computer": "PC",
-    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
+    "dataset": "xenium",
+    "computer": "laptop",
+    "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
 
-    "smoothing": "5x5",
+    "smoothing": None,
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
 
-    "dimred": "nmf",
-    "n_components": 20,
+    "dimred": "mnf",
+    "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters": 5
+    "n_clusters": 11
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -67,10 +68,10 @@ print(f"Results from {params['run_id']} will be saved to {run_folder}")
 
 start_time = time.perf_counter()
 # preprocessing_output = run_preprocessing(params, run_folder)
-preprocessing_output = {"n_features": "173"}
+preprocessing_output = {"n_features": "144"}
 dimensionality_red_output = run_dimensionality_reduction(
-    # r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy",
-    r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",
+    r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy",
+    # r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",
     params, 
     run_folder)
 metrics_output = run_clustering_metrics(dimensionality_red_output, run_folder, params)
