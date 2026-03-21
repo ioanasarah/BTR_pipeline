@@ -190,6 +190,7 @@ def save_umap_results(umap_transformed: np.ndarray,
     })
 
     umap_df.to_csv(save_path, index=False)
+    print(f"UMAP saved to {save_path}")
 
 def perform_pca(X: np.ndarray, n_components: int) -> np.ndarray:
     print("Performing PCA dimensionality reduction...")
@@ -213,6 +214,7 @@ def save_pca_results(pca_transformed: np.array,
     pca_df["cluster"] = labels
     
     pca_df.to_csv(save_path, index=False)
+    print(f"PCA saved to {save_path}")
 
 def save_preprocessed_matrix(matrix: np.ndarray, save_path: str) -> None:
     np.save(save_path, matrix)
@@ -336,7 +338,7 @@ def plot_pca_plotly(pca_transformed: np.ndarray,
     Returns:
         Plotly figure object
     """
-    print("Creating interactive UMAP visualization with Plotly...")
+    print("Creating interactive PCA visualization with Plotly...")
 
     # Create a dataframe for Plotly
     df_plot = pd.DataFrame({
@@ -700,11 +702,14 @@ def save_nmf_results(W: np.ndarray,
     nmf_df["cluster"] = labels.values
     
     nmf_df.to_csv(save_path, index=False)
+    print(f"NMF saved to {save_path}")
 
 def plot_nmf_plotly(W: np.ndarray,
                     labels: pd.Series,
                     run_folder: str,
                     run_name: str):
+
+    print("Creating interactive NMF visualization with Plotly...")
 
     df = pd.DataFrame({
         "NMF1": W[:, 0],
@@ -762,6 +767,7 @@ def plot_mnf_plotly(Z: np.ndarray,
                     run_folder: str,
                     run_name: str):
 
+    print("Creating interactive MNF visualization with Plotly...")
     df = pd.DataFrame({
         "MNF1": Z[:, 0],
         "MNF2": Z[:, 1],
@@ -785,6 +791,8 @@ def plot_mnf_spatially(Z,
                        original_shape, 
                        run_folder, 
                        n_components=3):
+    
+    print("Plotting MNF spatially...")
     height, width = original_shape
 
     for i in range(n_components):
@@ -1202,6 +1210,17 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             chunk_size= params.get("chunk_size", 50_000),
             run_folder=run_folder,
             start_time=start_time
+        )
+    elif params["dimred"] == "pca_umap":
+        embedding, loadings, explained = perform_pca(
+            matrix_scaled,
+            n_components=params["n_components"]
+        )
+        embedding = perform_umap(
+            embedding,
+            n_neighbors=params.get("n_neighbors", 15),
+            min_dist=params.get("min_dist", 0.1),
+            n_components=params.get("n_components", 2)
         )
     elif params["dimred"] == "full_spatial_pca":
         coords = get_pixel_coords(mask, original_shape)

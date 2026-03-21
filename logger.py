@@ -31,11 +31,11 @@ params = {
     "omp_coefs": 700,
     "bin_tol": 0.005,
 
-    "dimred": "mnf",
+    "dimred": "pca_umap", 
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters": 11
+    "n_clusters": 4 
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }

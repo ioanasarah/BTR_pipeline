@@ -8,3 +8,16 @@ hippocampus_OMP_spca10_k4_smoothing,hippocampus,OMP,5x5,0.005,spca,10,kmeans,4,1
 hippocampus_OMP_pca10_k5,hippocampus,OMP,,0.005,pca,10,kmeans,5,173,276.2244445,PC,C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr,TIC,700,5,1.132781585,71519.74793,2.010186432
 hippocampus_OMP_pca10_k5_smoothing,hippocampus,OMP,no_5x5,0.005,pca,10,kmeans,5,173,220.8310732,PC,C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr,TIC,700,5,1.132781587,71519.74795,2.010186432
 hippocampus_OMP_nmf20_k5,hippocampus,OMP,,0.005,nmf,20,kmeans,5,173,32.3931575,PC,C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr,TIC,700,5,2.303456469,7707.513663,53.70136469
+xenium_OMP_nmf10_k5,xenium,OMP,,0.005,nmf,10,kmeans,5,144,89.2722859,PC,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,5,0.844009318,286438.9925,29.30236074
+xenium_OMP_nmf10_k4_smoothing,xenium,OMP,5x5,0.005,nmf,10,kmeans,4,144,254.8645785,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,1.755655098,318625.8383,15.12343282
+xenium_OMP_nmf10_k3,xenium,OMP,,0.005,nmf,10,kmeans,3,144,89.5021984,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,3,0.878295794,241137.5823,14.56308873
+xenium_OMP_pca10_k4,xenium,OMP,,0.005,pca,10,kmeans,4,144,146.4023342,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,2.542679504,40487.94086,62.34259798
+xenium_OMP_pca10_k4,xenium,OMP,,0.005,pca,10,kmeans,4,144,130.1158949,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,2.542675773,40487.93852,62.34248168
+xenium_OMP_mnf5_k4,xenium,OMP,,0.005,mnf,5,kmeans,4,144,59.8772312,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,0.267570417,359224.063,0.030701244
+xenium_OMP_mnf5_k6,xenium,OMP,,0.005,mnf,5,kmeans,6,144,66.5855566,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,6,0.353247301,1749352.982,0.048726596
+xenium_OMP_mnf10_k2,xenium,OMP,,0.005,mnf,10,kmeans,2,144,68.6686549,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,2,0.178332464,90478.90072,0.009652285
+xenium_OMP_mnf10_k11,xenium,OMP,,0.005,mnf,10,kmeans,11,144,69.6656295,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,11,0.431221168,663641.9279,0.102918944
+xenium_OMP_pca10_k4_smoothing,xenium,OMP,5x5,0.005,pca,10,kmeans,4,144,160.8947582,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,1.463209343,375483.6351,4.85253249
+xenium_OMP_pca10_k4,xenium,OMP,,0.005,pca,10,kmeans,4,144,209.1961111,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,2.542674037,40487.93434,62.34166764
+xenium_OMP_spca10_k4,xenium,OMP,,0.005,spca,10,kmeans,4,144,191.9754353,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,2.648114976,44016.24736,55.31759507
+xenium_OMP_spca10_k4_smoothing,xenium,OMP,5x5,0.005,spca,10,kmeans,4,144,144.4016594,laptop,C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr,TIC,700,4,1.372905448,430365.5295,2.771482693
