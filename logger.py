@@ -49,7 +49,11 @@ def generate_run_name(params):
     ]
 
     if params["smoothing"]:
-        parts.append("3x3_just_mask_smoothing")
+        # BUG FIX: use the actual smoothing value rather than the hardcoded string
+        # "3x3_just_mask_smoothing".  The old code produced identical run folder names
+        # for any non-falsy smoothing setting, so different smoothing configs would
+        # silently overwrite each other's results.
+        parts.append(f"{params['smoothing']}_smoothing")
 
     return "_".join(parts)
 

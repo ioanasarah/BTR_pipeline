@@ -24,7 +24,13 @@ start_time = time.perf_counter()
 # print("Extracted labels and embeddings in {:.2f} seconds".format(time.perf_counter() - start_time))
 
 
-def percentage_abnormal_edge_pixels(spatial_map) -> float:
+def percentage_abnormal_edge_pixels(spatial_map, start_time: float = None) -> float:
+    # BUG FIX: start_time is now a parameter instead of reading the module-level
+    # variable.  The module-level start_time is set at import time, so the old
+    # "completed in X seconds" message reported time-since-import, not
+    # time-in-function.  Callers pass their own local start time.
+    if start_time is None:
+        start_time = time.perf_counter()
     # spatial_reconstruction is a 2D array of the same shape as the original image, where each pixel's value is the cluster label assigned to that pixel
     # edge_window defines how many pixels from the ith pixel is used to determine if i is edge pixel or not 
     count_abnormal_edge_pixels = 0
@@ -94,7 +100,14 @@ def run_clustering_metrics(dimensionality_red_output, run_folder, params):
     db = davies_bouldin_score(X, labels)
     ch = calinski_harabasz_score(X, labels)
 
-    paep = percentage_abnormal_edge_pixels(spatial_map=spatial_map)
+    # BUG FIX: pass a local start_time into percentage_abnormal_edge_pixels
+    # so the reported duration is time spent in the function, not time since
+    # module import.  The module-level start_time (line 17) is set at import,
+    # so "completed in X seconds" would include all time since the module
+    # was first loaded -- a meaningless and always-growing number.
+    metrics_start = time.perf_counter()
+    paep = percentage_abnormal_edge_pixels(spatial_map=spatial_map,
+                                           start_time=metrics_start)
 
     return {
         "davies_bouldin": db,
