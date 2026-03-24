@@ -181,6 +181,7 @@ def perform_umap(X: np.ndarray,
         UMAP-transformed data
     """
     print("Performing UMAP dimensionality reduction...")
+    _t = time.perf_counter()
     if supervised and y is not None:
         reducer = umap.UMAP(
             n_neighbors=n_neighbors,
@@ -205,7 +206,7 @@ def perform_umap(X: np.ndarray,
         )
         umap_transformed = reducer.fit_transform(X)
     
-    print("done with umap! took {:.2f} seconds".format(time.perf_counter() - start_time))
+    print("done with umap! took {:.2f} seconds".format(time.perf_counter() - _t))
     return umap_transformed
     
 def save_umap_results(umap_transformed: np.ndarray,
@@ -222,13 +223,14 @@ def save_umap_results(umap_transformed: np.ndarray,
 
 def perform_pca(X: np.ndarray, n_components: int) -> np.ndarray:
     print("Performing PCA dimensionality reduction...")
+    _t = time.perf_counter()
     pca = PCA(n_components=n_components, 
               svd_solver='randomized', 
               random_state=42)
     pca_transformed = pca.fit_transform(X)
     loadings = pca.components_
     explained = pca.explained_variance_ratio_
-    print("done with PCA! took {:.2f} seconds".format(time.perf_counter() - start_time))
+    print("done with PCA! took {:.2f} seconds".format(time.perf_counter() - _t))
     return pca_transformed, loadings, explained
 
 
@@ -245,8 +247,9 @@ def save_pca_results(pca_transformed: np.array,
     print(f"PCA saved to {save_path}")
 
 def save_preprocessed_matrix(matrix: np.ndarray, save_path: str) -> None:
+    _t = time.perf_counter()
     np.save(save_path, matrix)
-    print(f"Preprocessed matrix saved to {save_path}. Took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Preprocessed matrix saved to {save_path}. Took {time.perf_counter() - _t:.2f} seconds")
 
 
 def plot_umap_plotly(umap_transformed: np.ndarray, 
@@ -883,22 +886,21 @@ def kmeans_clustering(matrix: np.ndarray,
                       n_init: int = 10,
                       init: str = 'k-means++') -> pd.Series:
 
-    kmeans_labels = KMeans(n_clusters=n_clusters, 
+    _t = time.perf_counter()
+    kmeans_labels = KMeans(n_clusters=n_clusters,
                            random_state=random_state,
                            n_init=n_init,
                            init=init)
-    labels = kmeans_labels.fit_predict(matrix) # groups pixels from umap into clusters based on their similarity 
+    labels = kmeans_labels.fit_predict(matrix) # groups pixels from umap into clusters based on their similarity
     print(f"KMeans complete. Found {n_clusters} clusters.")
     print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
-    print(f"KMeans clustering took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"KMeans clustering took {time.perf_counter() - _t:.2f} seconds")
     return pd.Series(labels)
 
 def spectral_clustering(matrix: np.ndarray,
                         n_clusters: int,
                         random_state: Optional[int] = None) -> pd.Series:
-    
-        # (random_state = None, n_components = 20, n_init = 10, gamma = 1, affinity = 
-# ‘rbf’, n_neighbors = 10, eigen_tol = 0.0, assign_labels = ‘kmeans’, degree = 3)
+    _t = time.perf_counter()
     idx = np.random.choice(len(matrix), size=10000, replace=False)
     sample = matrix[idx]
 
@@ -925,7 +927,7 @@ def spectral_clustering(matrix: np.ndarray,
     # labels = labels_all
     print(f"Spectral Clustering complete. Found {n_clusters} clusters.")
     print(f"Cluster sizes: {pd.Series(labels_all).value_counts().sort_index().to_dict()}")
-    print(f"Spectral clustering took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Spectral clustering took {time.perf_counter() - _t:.2f} seconds")
     return pd.Series(labels_all)
 
 
@@ -936,6 +938,7 @@ def hdbscan_clustering(matrix: np.ndarray,
                         cluster_selection_method: str = 'eom') -> pd.Series: 
     # eom = excess of mass, selects clusters based on stability
     print("Performing HDBSCAN clustering...")
+    _t = time.perf_counter()
     hdbscan_labels = HDBSCAN(
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
@@ -945,7 +948,7 @@ def hdbscan_clustering(matrix: np.ndarray,
     labels = hdbscan_labels.fit_predict(matrix)
     print(f"HDBSCAN clustering complete. Found {len(np.unique(labels[labels >= 0]))} clusters.")
     print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
-    print(f"HDBSCAN clustering took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"HDBSCAN clustering took {time.perf_counter() - _t:.2f} seconds")
     return pd.Series(labels)
 
 # run_folder = os.path.join(
@@ -955,11 +958,12 @@ def hdbscan_clustering(matrix: np.ndarray,
 #     )
 # os.makedirs(run_folder, exist_ok=True)
 
-def reconstruct_spatial_map(labels:pd.Series,
+def reconstruct_spatial_map(labels: pd.Series,
                             mask: np.ndarray,
                             original_shape: tuple,
                             run_folder: str,
                             run_name: str) -> np.ndarray:
+    _t = time.perf_counter()
     print("Reconstructing spatial map from cluster labels...")
     height, width = original_shape
     spatial_map = np.full(height * width, -1)  # creates an empty array of the original size filled with -1 (background)
@@ -971,15 +975,16 @@ def reconstruct_spatial_map(labels:pd.Series,
     # mask is boolean array which indicates which pixels are non-zero (from preprocessing)
     reconstructed_map = spatial_map.reshape(height, width) # reshape back to original image dimensions
     np.save(f"{run_folder}\\spatial_map_matrix_{run_name}.npy", reconstructed_map)
-    print("Spatial map reconstruction complete. Took {:.2f} seconds".format(time.perf_counter() - start_time))
+    print("Spatial map reconstruction complete. Took {:.2f} seconds".format(time.perf_counter() - _t))
     # reshape converts 1d array into 2d grid which now has bg and actual image of sample
     return reconstructed_map
 
 def plot_spatial_map(spatial_map: np.ndarray,
-                     title: str, 
-                     run_folder: str, 
+                     title: str,
+                     run_folder: str,
                      n_clusters):
-    print( "Plotting spatial map of clusters...")
+    _t = time.perf_counter()
+    print("Plotting spatial map of clusters...")
     # colors = ["black"]  # background
     
     cluster_colours = [
@@ -1031,11 +1036,12 @@ def plot_spatial_map(spatial_map: np.ndarray,
    
     plt.savefig(f"{run_folder}\\spatial_map.png", dpi=300, bbox_inches='tight')
     print(f"Spatial map figure saved to {run_folder}\\spatial_map.png")
-    print("Spatial map plotting complete. Took {:.2f} seconds".format(time.perf_counter() - start_time))
+    print("Spatial map plotting complete. Took {:.2f} seconds".format(time.perf_counter() - _t))
     plt.show()
 
 
-def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:str) -> None:
+def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder: str) -> None:
+    _t = time.perf_counter()
     inertias = []
     # k_range = range(1, 10)
 
@@ -1050,7 +1056,7 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:s
     plt.title("Elbow Method for Optimal k")
     plt.savefig(f"{run_folder}\\ceva_elbow_method.png")
     plt.show()
-    print(f"Elbow method plot saved to {run_folder}\\ceva_elbow_method.png. Took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Elbow method plot saved to {run_folder}\\ceva_elbow_method.png. Took {time.perf_counter() - _t:.2f} seconds")
 
 # umap_transformed = perform_umap(
 #     matrix_scaled, 
@@ -1274,11 +1280,15 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             matrix_scaled,
             n_components=params["n_components"]
         )
+        # BUG FIX: use a separate "umap_n_components" key (default 2) rather than
+        # reusing "n_components".  The latter is set for PCA (e.g. 10 components);
+        # passing it to UMAP would produce a 10-D embedding instead of the usual
+        # 2-D layout used for visualisation and clustering.
         embedding = perform_umap(
             embedding,
             n_neighbors=params.get("n_neighbors", 15),
             min_dist=params.get("min_dist", 0.1),
-            n_components=params.get("n_components", 2)
+            n_components=params.get("umap_n_components", 2)
         )
     elif params["dimred"] == "full_spatial_pca":
         coords = get_pixel_coords(mask, original_shape)
@@ -1396,7 +1406,12 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     
 
     spatial_map = reconstruct_spatial_map(labels, mask, original_shape, run_folder, params['run_id'])
-    plot_spatial_map(spatial_map, title=f"Spatial Map - {params['run_id']}", run_folder=run_folder, n_clusters=params["n_clusters"])
+    # BUG FIX: derive cluster count from the actual labels rather than params["n_clusters"].
+    # HDBSCAN does not require n_clusters in params, so indexing it would raise KeyError.
+    # Even for KMeans, using the real count is safer (HDBSCAN noise points are label -1
+    # and are excluded from the count, matching the colour map which starts with black=bg).
+    n_clusters_found = len(set(labels)) - (1 if -1 in set(labels) else 0)
+    plot_spatial_map(spatial_map, title=f"Spatial Map - {params['run_id']}", run_folder=run_folder, n_clusters=n_clusters_found)
 
     runtime = time.perf_counter() - start_time
 
