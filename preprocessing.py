@@ -206,7 +206,6 @@ def linear_recalibration(data, reference_mz, reference_intensity,
             print(f"Processed {i}/{n_pixels} pixels")
 
         pixel = np.array(X[i].todense()).flatten() if issparse(X) else X[i] # get each pixel spectrum as a dense array
-        print(pixel.max())
         # 1D array of intensities for the current pixel
         
         measured_peaks = [] # observed m/z in pixel
@@ -432,16 +431,26 @@ def filtering(
     return presence, filtered_spectra, filtered_mz
 
 
-def tic_normalization(filtered_spectra: np.ndarray, 
+def tic_normalization(filtered_spectra: np.ndarray,
                       target: float = 1.0):
     print("performing TIC normalization...")
     tic = filtered_spectra.sum(axis=1) # total ion current for each spectrum / for each pixel
     tic = np.where(tic == 0, 1, tic) # avoid division by zero
     normalised_matrix = (filtered_spectra / tic) * target # divide each spectrum by its TIC to normalize for differences in total intensity between spectra
-    
+
     # TIC should be aprox 1.0 for all non-zero pixels
     non_zero_tics = normalised_matrix.sum(axis=1)
     non_zero_tics = non_zero_tics[non_zero_tics > 0]
+
+    # BUG FIX: densify before saving.
+    # If filtered_spectra is a scipy sparse matrix, the division above
+    # produces another sparse matrix.  np.save on a sparse object creates
+    # a 0-dimensional pickled object array, NOT a plain numeric array.
+    # The downstream np.load (without allow_pickle=True) then crashes with
+    # "Object arrays cannot be loaded when allow_pickle=False".
+    # Converting to dense here ensures the file is always a plain ndarray.
+    if issparse(normalised_matrix):
+        normalised_matrix = normalised_matrix.toarray()
     np.save(f"{run_folder}\\normalised_matrix.npy", normalised_matrix)
     print(f"Post-normalisation TIC — mean: {non_zero_tics.mean():.4f}, std: {non_zero_tics.std():.6f}")
     print(f"TIC normalization complete in {time.perf_counter() - start_time:.2f} seconds")
@@ -449,15 +458,23 @@ def tic_normalization(filtered_spectra: np.ndarray,
     return normalised_matrix
 
 def reshaping_to_3d_matrix(
-        data, 
+        data,
         filtered_spectra
         ):
     print("reshaping to 3D matrix...")
     x_coords = data.obs["x"].values
     y_coords = data.obs["y"].values
 
-    width = len(np.unique(x_coords))
-    height = len(np.unique(y_coords))
+    # BUG FIX: use max+1, not len(unique).
+    # len(np.unique(...)) counts the number of *distinct* coordinate values,
+    # which equals the grid extent only when every row/column has at least one
+    # pixel.  MALDI tissue sections always have missing edge pixels, so
+    # unique-count < actual grid width.  When unique-count is wrong the
+    # reshape either crashes (wrong total) or silently puts pixels in the
+    # wrong spatial positions -- a silent data corruption.
+    # The correct grid extent is simply the largest index + 1.
+    width = int(x_coords.max()) + 1
+    height = int(y_coords.max()) + 1
     print(f"Reshaping to 3D matrix with dimensions: ({height}, {width}, {filtered_spectra.shape[1]})")
 
     matrix = filtered_spectra.toarray().reshape(height, width, -1)

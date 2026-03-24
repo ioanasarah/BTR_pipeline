@@ -99,7 +99,10 @@ def load_and_preprocess_msi(
     # Remove zero pixels (important for MSI)
     mask = np.sum(X, axis=1) > 0
     X = X[mask]
-    noise = noise[mask]
+    # noise is None when the input is already 2D (no spatial structure to
+    # estimate noise from); only index into it when it actually exists.
+    if noise is not None:
+        noise = noise[mask]
     # save mask
     np.save(f"{run_folder}\\mask.npy", mask)
     print(f"Mask saved to {run_folder}\\mask.npy")
@@ -754,22 +757,42 @@ def plot_nmf_plotly(W: np.ndarray,
     fig.write_html(f"{run_folder}\\nmf_plot.html")
     fig.show()
 
-def perform_mnf(X, 
-                coords, 
-                noise, 
-                mask, 
+def perform_mnf(X,
+                coords,
+                noise,
+                mask,
                 n_components
                 ):
-    
+    """Minimum Noise Fraction (MNF) transform.
+
+    MNF solves the generalised eigenvalue problem:  A v = lambda B v
+    where:
+        A = covariance of the DATA  (signal + noise)
+        B = covariance of the NOISE (estimated from diagonal differences)
+
+    The eigenvalue lambda = signal_variance / noise_variance, so it is
+    literally the SNR of each component.  Components are sorted so that
+    the HIGHEST SNR comes first.
+
+    IMPORTANT -- units must match:
+    Both X and noise must be in the same physical units (raw intensities).
+    If you StandardScaler-normalise X before calling this function the
+    data variance per feature is squashed to ~1, but the noise covariance B
+    stays in raw intensity units.  The resulting eigenvalues are meaningless
+    (they no longer represent SNR) and the top components will be artefacts
+    of the normalisation rather than real signal structure.  This is
+    exactly why the function receives matrix_nmf (raw), not matrix_scaled.
+    """
+
     print("Performing MNF...")
-    # noise already estimated from loading function 
-    
+    # noise already estimated from loading function
+
     # compute covariance matrices
-    A = np.cov(X, rowvar=False) # A is covariance of data 
-    B = np.cov(noise, rowvar=False) / 2 # B is covariance of noise 
+    A = np.cov(X, rowvar=False) # A is covariance of data
+    B = np.cov(noise, rowvar=False) / 2 # B is covariance of noise
     # cov of differences = 2 * noise cov, so divide by 2
 
-    # solve generalised eigenproblem 
+    # solve generalised eigenproblem
     eigvals, eigvecs = eigh(A, B)
 
     # sort components so we get highest SNR first 
@@ -1274,10 +1297,16 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         )
     elif params["dimred"] == "mnf":
         coords = get_pixel_coords(mask, original_shape)
+        # NOTE: pass matrix_nmf (raw, unscaled) NOT matrix_scaled.
+        # MNF requires data and noise to be in the same units so that
+        # the eigenvalue lambda = signal_var / noise_var is a true SNR.
+        # StandardScaler sets every feature's variance to 1 (unitless),
+        # but noise stays in raw intensity counts -- the ratio becomes
+        # meaningless and the "top" components are normalisation artefacts.
         embedding, top_components, eigvals = perform_mnf(
-            X = matrix_scaled,
-            coords = coords, 
-            noise = noise,  
+            X = matrix_nmf,
+            coords = coords,
+            noise = noise,
             mask=mask,
             n_components=params.get("n_components", 10)
         )

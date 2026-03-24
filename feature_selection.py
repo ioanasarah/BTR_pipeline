@@ -75,14 +75,26 @@ def perform_fdr_correction(p_values: np.ndarray):
     return reject, pvals_corrected
 
 
-def volcano_plot_plotly(matrix, 
-                        labels, 
+def volcano_plot_plotly(matrix,
+                        labels,
                         p_values,
-                        mz_values):
-    
-    
-    cluster0 = matrix[labels == 0]
-    cluster1 = matrix[labels == 1]
+                        mz_values,
+                        run_folder: str,
+                        name_of_run: str,
+                        cluster_a: int = 0,
+                        cluster_b: int = 1):
+    # BUG FIX: run_folder and name_of_run are now explicit parameters.
+    # Previously they referenced module-level variables that are not
+    # defined when this function is called from run_dimensionality_reduction
+    # or any other context -- a silent NameError waiting to happen.
+    #
+    # BUG FIX: cluster_a / cluster_b parameters replace the hard-coded 0/1.
+    # A volcano plot compares exactly two groups (fold-change is only
+    # meaningful between a pair).  With k>2 clusters the original code
+    # silently ignored all clusters except 0 and 1.  Callers should now
+    # explicitly choose which pair to compare, or loop over all pairs.
+    cluster0 = matrix[labels == cluster_a]
+    cluster1 = matrix[labels == cluster_b]
 
     mean0 = np.mean(cluster0, axis=0)
     mean1 = np.mean(cluster1, axis=0)
