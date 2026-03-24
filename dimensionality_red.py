@@ -68,7 +68,7 @@ def load_and_preprocess_msi(
     if matrix.ndim == 3:
         height, width, n_peaks = matrix.shape
 
-        matrix = uniform_filter(matrix.astype(float), size=[5, 5, 1]) # SMOOTHING
+        # matrix = uniform_filter(matrix.astype(float), size=[3, 3, 1]) # SMOOTHING
         # averages each pixel's spectrum with its neighborspo
         # 3×3 pixel window spatially but no smooothing across the m/z dimension
 
@@ -109,16 +109,41 @@ def load_and_preprocess_msi(
         print(f"Raw matrix saved to {save_raw}")
     
     # Scale features
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    X_scaled += np.random.normal(0, 1e-6, X_scaled.shape) # add small noise to avoid zero variance issues in UMAP
-    if save_scaled:
-        np.save(save_scaled, X_scaled)
-        print(f"Scaled matrix saved to {save_scaled}")
+    # scaler = StandardScaler()
+    # X_scaled = scaler.fit_transform(X)
+    # X_scaled += np.random.normal(0, 1e-6, X_scaled.shape) # add small noise to avoid zero variance issues in UMAP
+    # if save_scaled:
+    #     np.save(save_scaled, X_scaled)
+    #     print(f"Scaled matrix saved to {save_scaled}")
 
-    print(f"Scaling completed in {time.perf_counter() - start_time:.2f} seconds")
+    # print(f"Scaling completed in {time.perf_counter() - start_time:.2f} seconds")
     
-    return X_scaled, X, mask, original_shape, noise
+    return X, mask, original_shape, noise
+
+def smooth_and_scale_matrix(X: np.array, 
+                            coords: np.ndarray,
+                            connectivity: int = 4,
+                            run_folder: str = None,
+                            save_scaled: Optional[str] = None) -> np.ndarray:
+
+    W = build_pixel_grid_graph_sparse(coords, connectivity)
+    degree = np.array(W.sum(axis=1)).flatten()
+    degree_inv = 1.0 / np.where(degree > 0, degree, 1.0)
+    W_norm = sp.diags(degree_inv) @ W  # row-normalised
+
+
+    X_smooth = W_norm @ X
+    print("Smoothing complete.")
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X_smooth)
+    X_scaled += np.random.normal(0, 1e-6, X_scaled.shape)
+
+    if save_scaled and run_folder:
+        np.save(os.path.join(run_folder, "matrix_scaled.npy"), X_scaled)
+        print(f"Scaled matrix saved.")
+
+    return X_scaled
 
 
 def subset_matrix(matrix: np.ndarray, subset_size: int = 50_000, seed: int = 42) -> np.ndarray:
@@ -1176,13 +1201,23 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     os.makedirs(run_folder,     exist_ok=True)
 
     # preprocessing
-    matrix_scaled, matrix_nmf, mask, original_shape, noise = load_and_preprocess_msi(
+    matrix_nmf, mask, original_shape, noise = load_and_preprocess_msi(
         file_path=file_path,
         run_folder=run_folder,
         remove_zero_pixels=params.get("remove_zero_pixels", True),
         save_raw=f"{run_folder}\\matrix_raw.npy",
         save_scaled=f"{run_folder}\\matrix_scaled.npy"
     )
+
+    coords = get_pixel_coords(mask, original_shape)
+
+    matrix_scaled = smooth_and_scale_matrix(
+    matrix_nmf,
+    coords,
+    connectivity=params.get("spatial_connectivity", 4),
+    run_folder=run_folder,
+    save_scaled=f"{run_folder}\\matrix_scaled.npy"
+)
 
     # dimensionality reduction
     if params["dimred"] == "pca":

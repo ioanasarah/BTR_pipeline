@@ -2,7 +2,7 @@ import os
 os.environ["NUMBA_DISABLE_INTEL_SVML"] = "1"
 
 
-
+print("here1")
 import pandas as pd
 import time
 from preprocessing import run_preprocessing
@@ -25,17 +25,17 @@ params = {
     "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
 
-    "smoothing": "5x5",
+    "smoothing": "3x3_just_mask",
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
 
-    "dimred": "pca_umap", 
+    "dimred": "pca", 
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters": 2
+    "n_clusters": 4
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -49,7 +49,7 @@ def generate_run_name(params):
     ]
 
     if params["smoothing"]:
-        parts.append("smoothing")
+        parts.append("3x3_just_mask_smoothing")
 
     return "_".join(parts)
 
