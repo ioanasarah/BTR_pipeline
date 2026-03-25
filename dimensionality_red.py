@@ -97,9 +97,16 @@ def load_and_preprocess_msi(
     # noise = noise.reshape(-1, n_peaks)
     
     # Remove zero pixels (important for MSI)
+
+
     mask = np.sum(X, axis=1) > 0
     X = X[mask]
+<<<<<<< Updated upstream
     noise = noise[mask]
+=======
+    if noise is not None:
+        noise = noise[mask]
+>>>>>>> Stashed changes
     # save mask
     np.save(f"{run_folder}\\mask.npy", mask)
     print(f"Mask saved to {run_folder}\\mask.npy")
@@ -121,19 +128,24 @@ def load_and_preprocess_msi(
     return X, mask, original_shape, noise
 
 def smooth_and_scale_matrix(X: np.array, 
+                            W: np.array, 
                             coords: np.ndarray,
-                            connectivity: int = 4,
+                            smoothing, 
+                            connectivity: int = 8,
                             run_folder: str = None,
                             save_scaled: Optional[str] = None) -> np.ndarray:
 
-    W = build_pixel_grid_graph_sparse(coords, connectivity)
+    # W = build_pixel_grid_graph_sparse(coords, connectivity)
     degree = np.array(W.sum(axis=1)).flatten()
     degree_inv = 1.0 / np.where(degree > 0, degree, 1.0)
     W_norm = sp.diags(degree_inv) @ W  # row-normalised
 
 
-    X_smooth = W_norm @ X
-    print("Smoothing complete.")
+    if smoothing != None: 
+        X_smooth = W_norm @ X # each pixel becomes an average of its neighbours 
+        print("Smoothing complete.")
+    else: 
+        X_smooth = X
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_smooth)
@@ -571,7 +583,7 @@ def get_pixel_coords(mask: np.ndarray, original_shape: tuple) -> np.ndarray:
     return pixel_coords
 
 def build_pixel_grid_graph_sparse(coords: np.ndarray,
-                                   connectivity: int = 4) -> csr_matrix:
+                                   connectivity: int) -> csr_matrix:
     """
     Build a sparse spatial weight matrix for a pixel grid.
     Never computes all-to-all distances — looks up grid neighbours directly.
@@ -583,20 +595,21 @@ def build_pixel_grid_graph_sparse(coords: np.ndarray,
     """
     n = len(coords)
     coord_to_idx = {(int(r), int(c)): i for i, (r, c) in enumerate(coords)}
+    # maps each (row, column) coordinate to its index in the list 
 
     if connectivity == 4:
-        offsets = [(-1,0),(1,0),(0,-1),(0,1)]
+        offsets = [(-1,0),(1,0),(0,-1),(0,1)] # up down left right
     else:
-        offsets = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
+        offsets = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)] # all neighbours (also diagonals)
 
     rows, cols, data = [], [], []
     for i, (r, c) in enumerate(coords):
-        for dr, dc in offsets:
-            j = coord_to_idx.get((int(r)+dr, int(c)+dc))
-            if j is not None:
+        for dr, dc in offsets: # looping over every pixel coord and checks neighbours using offsets 
+            j = coord_to_idx.get((int(r)+dr, int(c)+dc)) 
+            if j is not None:# if neighbour pixel exists 
                 rows.append(i)
                 cols.append(j)
-                data.append(1.0)
+                data.append(1.0) # creating adjency matrix 
 
     W = csr_matrix((data, (rows, cols)), shape=(n, n))
     print(f"Sparse graph: {W.nnz:,} edges, "
@@ -606,6 +619,7 @@ def build_pixel_grid_graph_sparse(coords: np.ndarray,
 
 
 def spatial_pca_sparse(X: np.ndarray,
+                       W: np.ndarray,
                         coords: np.ndarray,
                         n_components: int = 10,
                         alpha: float = 0.5,
@@ -633,30 +647,27 @@ def spatial_pca_sparse(X: np.ndarray,
     n_pixels = X.shape[0]
     t = start_time or time.perf_counter()
 
-    # ── 1. Standard PCA on raw intensities ────────────────────────────────────
-    print("Step 1/3: Running standard PCA...")
+    # normal pca 
+    print("Running standard PCA...")
     pca = PCA(n_components=n_components, svd_solver='randomized', random_state=42)
     Z_pca = pca.fit_transform(X)   # (n_pixels, n_components)  float64
     explained = pca.explained_variance_ratio_
-    print(f"  PCA done — top 3 components explain "
+    print(f"  PCA done. Top 3 components explain: "
           f"{explained[:3].sum()*100:.1f}% variance. "
           f"Took {time.perf_counter()-t:.1f}s")
 
-    # ── 2. Build sparse spatial graph ─────────────────────────────────────────
-    print("Step 2/3: Building sparse spatial graph...")
-    W = build_pixel_grid_graph_sparse(coords, connectivity=connectivity)
-
-    # row-normalise: each pixel gets the mean of its neighbours' PCA scores
-    # D^-1 W  (D = diagonal degree matrix)
+    # row-normalise = each pixel gets the mean of its neighbours PCA scores
+    # constructing an explicit, inverse D^-1 degree matrix (D = diagonal degree matrix)
     degree = np.array(W.sum(axis=1)).flatten()
-    degree_inv = 1.0 / np.where(degree > 0, degree, 1.0)  # avoid /0 for isolated pixels
+    degree_inv = 1.0 / np.where(degree > 0, degree, 1.0)  # avoid /0 for isolated/edge pixels
     D_inv = sp.diags(degree_inv)
     W_norm = D_inv @ W   # still sparse — no memory explosion
 
-    print(f"  Graph normalised. Took {time.perf_counter()-t:.1f}s")
+    print(f"Graph normalised. Took {time.perf_counter()-t:.1f}s")
 
-    # ── 3. Apply spatial smoothing in chunks (avoids loading full W*Z at once) ─
-    print(f"Step 3/3: Applying spatial smoothing in chunks of {chunk_size:,}...")
+    # applying spatial smoothing in chunks
+    # bc we cant load whole thing at once 
+    print(f"Applying spatial smoothing in chunks of {chunk_size:,}...")
     Z_smooth = np.empty_like(Z_pca)
 
     for start in range(0, n_pixels, chunk_size):
@@ -1198,7 +1209,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     #     folder_name,
     #     params["run_id"]
     # )
-    os.makedirs(run_folder,     exist_ok=True)
+    os.makedirs(run_folder, exist_ok=True)
 
     # preprocessing
     matrix_nmf, mask, original_shape, noise = load_and_preprocess_msi(
@@ -1210,11 +1221,14 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     )
 
     coords = get_pixel_coords(mask, original_shape)
+    pixel_graph = build_pixel_grid_graph_sparse(coords = coords, connectivity=params.get("spatial_connectivity", 8))
 
     matrix_scaled = smooth_and_scale_matrix(
     matrix_nmf,
+    pixel_graph,
     coords,
-    connectivity=params.get("spatial_connectivity", 4),
+    params.get("smoothing"),
+    connectivity=params.get("spatial_connectivity", 8),
     run_folder=run_folder,
     save_scaled=f"{run_folder}\\matrix_scaled.npy"
 )
@@ -1235,9 +1249,10 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         )
         explained = None
     elif params["dimred"] == "spca":
-        coords = get_pixel_coords(mask, original_shape)
+        # coords = get_pixel_coords(mask, original_shape)
         embedding, explained = spatial_pca_sparse(
             X = matrix_scaled, 
+            W = pixel_graph,
             coords = coords,
             n_components= params.get("n_components", 10),
             alpha = params.get("spatial_alpha", 0.5),
@@ -1258,7 +1273,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             n_components=params.get("n_components", 2)
         )
     elif params["dimred"] == "full_spatial_pca":
-        coords = get_pixel_coords(mask, original_shape)
+        # coords = get_pixel_coords(mask, original_shape)
         embedding = perform_spca(
             X = matrix_scaled, 
             coords = coords, 
@@ -1273,9 +1288,16 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             max_iterations=6000
         )
     elif params["dimred"] == "mnf":
+<<<<<<< Updated upstream
         coords = get_pixel_coords(mask, original_shape)
         embedding, top_components, eigvals = perform_mnf(
             X = matrix_scaled,
+=======
+        # coords = get_pixel_coords(mask, original_shape)
+        embedding, top_components, eigvals = perform_mnf(
+            # X = matrix_scaled,
+            X = matrix_nmf,
+>>>>>>> Stashed changes
             coords = coords, 
             noise = noise,  
             mask=mask,
@@ -1375,6 +1397,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         "embedding": embedding,
         # "explained_variance": Optional = explained,
         # "spatial_map_file_path": ,
+        "matrix_scaled": matrix_scaled,
         "labels": labels,
         "run_name": params["run_id"],
         "runtime": runtime,

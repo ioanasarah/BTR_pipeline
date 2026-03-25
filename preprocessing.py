@@ -17,11 +17,11 @@ from scipy.sparse import issparse
 
 print("Loaded packages for preprocessing")
 
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-# results_folder = r"C:\Users\i6338212\data\results"
-preprocessing_run_name = "small_computer_xenium_omp"
-run_folder = os.path.join(results_folder, preprocessing_run_name)
-os.makedirs(run_folder, exist_ok=True)
+# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+# # results_folder = r"C:\Users\i6338212\data\results"
+# preprocessing_run_name = "small_computer_xenium_omp"
+# run_folder = os.path.join(results_folder, preprocessing_run_name)
+# os.makedirs(run_folder, exist_ok=True)
 
 start_time = time.perf_counter()
 
@@ -62,7 +62,7 @@ def compute_average_spectrum(
 
 
 
-def check_mass_drift(data, n_pixels=1000):
+def check_mass_drift(data, run_folder, n_pixels=1000):
     """
     Compare average spectra from first vs last N pixels to visualise mass drift.
     """
@@ -115,7 +115,7 @@ def check_mass_drift(data, n_pixels=1000):
 
     return shift
 
-def linear_recalibration(data, reference_mz, reference_intensity, 
+def linear_recalibration(data, reference_mz, reference_intensity, run_folder,
                           n_landmarks=5, mz_tolerance=0.3):
     """
     Align each pixel spectrum to a reference via linear m/z recalibration.
@@ -206,7 +206,11 @@ def linear_recalibration(data, reference_mz, reference_intensity,
             print(f"Processed {i}/{n_pixels} pixels")
 
         pixel = np.array(X[i].todense()).flatten() if issparse(X) else X[i] # get each pixel spectrum as a dense array
+<<<<<<< Updated upstream
         print(pixel.max())
+=======
+        # print(pixel.max())
+>>>>>>> Stashed changes
         # 1D array of intensities for the current pixel
         
         measured_peaks = [] # observed m/z in pixel
@@ -310,7 +314,8 @@ def peak_detection_mad(
 
 
 def peak_detection_omp(mz, 
-        avg_intensity, 
+        avg_intensity,
+        run_folder, 
         window_size=0.07, 
         non_zero_coefs=700):
     print("detecting peaks using OMP...")
@@ -358,6 +363,7 @@ def peak_detection_omp(mz,
 
 def peak_binning(
         peak_mz, 
+        run_folder,
         tolerance=0.005
 ):
     print("binning peaks...")
@@ -407,7 +413,8 @@ def pooling(
 
 def filtering(
         pooled_spectra, 
-        pooled_mz
+        pooled_mz, 
+        run_folder
 ):
     print("filtering spectra...")
     presence = (pooled_spectra > 0).sum(axis=0) # count how many pixels each peak appears
@@ -432,7 +439,11 @@ def filtering(
     return presence, filtered_spectra, filtered_mz
 
 
+<<<<<<< Updated upstream
 def tic_normalization(filtered_spectra: np.ndarray, 
+=======
+def tic_normalization(filtered_spectra: np.ndarray, run_folder:str,
+>>>>>>> Stashed changes
                       target: float = 1.0):
     print("performing TIC normalization...")
     tic = filtered_spectra.sum(axis=1) # total ion current for each spectrum / for each pixel
@@ -460,7 +471,11 @@ def reshaping_to_3d_matrix(
     height = len(np.unique(y_coords))
     print(f"Reshaping to 3D matrix with dimensions: ({height}, {width}, {filtered_spectra.shape[1]})")
 
-    matrix = filtered_spectra.toarray().reshape(height, width, -1)
+    if issparse(filtered_spectra):
+        spectra_array = filtered_spectra.toarray()
+    else:
+        spectra_array = filtered_spectra
+    matrix = spectra_array.reshape(height, width, -1)
     # matrix = filtered_spectra.reshape(height, width, -1)
     print(f"Reshaped matrix shape: {matrix.shape} in {time.perf_counter() - start_time:.2f} seconds")
     
@@ -536,14 +551,14 @@ def run_preprocessing(params, run_folder):
     AnnData, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
 
     peak_mz, peak_intensities = peak_detection_omp(
-        mz, avg_intensity, non_zero_coefs=params["omp_coefs"]
+        mz, avg_intensity, run_folder, non_zero_coefs=params["omp_coefs"]
     )
 
-    bins = peak_binning(peak_mz, tolerance=params["bin_tol"])
+    bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
     pooled_spectra, pooled_mz = pooling(AnnData.X, mz, bins)
-    _, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz)
+    _, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz, run_folder)
 
-    normalized_matrix = tic_normalization(filtered_spectra)
+    normalized_matrix = tic_normalization(filtered_spectra, run_folder)
 
     matrix = reshaping_to_3d_matrix(AnnData, normalized_matrix)
 

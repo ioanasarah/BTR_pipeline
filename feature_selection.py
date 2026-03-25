@@ -19,14 +19,14 @@ print("Loaded packages for feature selection")
 start_time = time.perf_counter()
 
 def load_things(raw_matrix_file_path: str,
-                pca_file_path: str):
+                file_path: str):
     # load matrix
     matrix_scaled = np.load(raw_matrix_file_path)
     print(f"Matrix loaded in {time.perf_counter() - start_time:.2f} seconds")
 
     # load pca 
 
-    pca_df = pd.read_csv(pca_file_path)
+    pca_df = pd.read_csv(file_path)
     labels = pca_df["cluster"]
     pca_transformed = pca_df.iloc[:, :-1].values
     print(f"PCA results loaded. Shape: {pca_transformed.shape}, Clusters: {labels.nunique()}")
@@ -78,11 +78,32 @@ def perform_fdr_correction(p_values: np.ndarray):
 def volcano_plot_plotly(matrix, 
                         labels, 
                         p_values,
+<<<<<<< Updated upstream
                         mz_values):
     
     
     cluster0 = matrix[labels == 0]
     cluster1 = matrix[labels == 1]
+=======
+                        run_folder, 
+                        mz_values,
+                        # run_folder: str,
+                        name_of_run: str,
+                        cluster_a: int = 0,
+                        cluster_b: int = 1):
+    # BUG FIX: run_folder and name_of_run are now explicit parameters.
+    # Previously they referenced module-level variables that are not
+    # defined when this function is called from run_dimensionality_reduction
+    # or any other context -- a silent NameError waiting to happen.
+    #
+    # BUG FIX: cluster_a / cluster_b parameters replace the hard-coded 0/1.
+    # A volcano plot compares exactly two groups (fold-change is only
+    # meaningful between a pair).  With k>2 clusters the original code
+    # silently ignored all clusters except 0 and 1.  Callers should now
+    # explicitly choose which pair to compare, or loop over all pairs.
+    cluster0 = matrix[labels == cluster_a]
+    cluster1 = matrix[labels == cluster_b]
+>>>>>>> Stashed changes
 
     mean0 = np.mean(cluster0, axis=0)
     mean1 = np.mean(cluster1, axis=0)
@@ -125,17 +146,40 @@ def volcano_plot_plotly(matrix,
     print(f"Volcano plot saved to {run_folder}\\volcano_plot_{name_of_run}.html")
 
 
-if __name__ == "__main__":
-    matrix_scaled, umap_transformed, labels = load_things(
-        raw_matrix_file_path=f"{run_folder}\\matrix_raw.npy",
-        pca_file_path=f"{run_folder}\\pca_results.csv")
+# if __name__ == "__main__":
+#     matrix_scaled, umap_transformed, labels = load_things(
+#         raw_matrix_file_path=f"{run_folder}\\matrix_raw.npy",
+#         pca_file_path=f"{run_folder}\\pca_results.csv")
 
+#     p_values = perform_anova_test(matrix=matrix_scaled, labels=labels)
+   
+#     reject, pvals_corrected = perform_fdr_correction(p_values)
+#     save_path = f"{run_folder}\\anova_results.csv"
+#     anova_results_df = pd.DataFrame({
+#         "mz": pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_tic_omp\filtered_mz_values.csv")["mz"].values,
+#         "p_value": p_values,
+#         "adjusted_p_value": pvals_corrected,
+#         "significant_after_fdr": reject
+#     })
+#     anova_results_df.to_csv(save_path, index=False)
+#     print(f"ANOVA results saved to {save_path}")
+    
+#     mz_values = pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\filtered_mz_values.csv")["mz"].values
+#     volcano_plot_plotly(matrix_scaled, labels, p_values, mz_values)
+
+# we want to know how many features are significant after FDR correction, and what is the minimum adjusted p-value. This will give us an idea of how many features we can select for downstream analysis.
+
+def run_feature_selection(params: dict, 
+                          run_folder: str):
+    matrix_scaled, embedding, labels = load_things(
+        raw_matrix_file_path=f"{run_folder}\\matrix.npy",
+        pca_file_path=f"{run_folder}\\pca_results.csv")
     p_values = perform_anova_test(matrix=matrix_scaled, labels=labels)
    
     reject, pvals_corrected = perform_fdr_correction(p_values)
     save_path = f"{run_folder}\\anova_results.csv"
     anova_results_df = pd.DataFrame({
-        "mz": pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_tic_omp\filtered_mz_values.csv")["mz"].values,
+        "mz": pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
         "p_value": p_values,
         "adjusted_p_value": pvals_corrected,
         "significant_after_fdr": reject
@@ -143,7 +187,5 @@ if __name__ == "__main__":
     anova_results_df.to_csv(save_path, index=False)
     print(f"ANOVA results saved to {save_path}")
     
-    mz_values = pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\filtered_mz_values.csv")["mz"].values
+    mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
     volcano_plot_plotly(matrix_scaled, labels, p_values, mz_values)
-
-# we want to know how many features are significant after FDR correction, and what is the minimum adjusted p-value. This will give us an idea of how many features we can select for downstream analysis.

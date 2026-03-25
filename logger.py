@@ -2,12 +2,14 @@ import os
 os.environ["NUMBA_DISABLE_INTEL_SVML"] = "1"
 
 
-print("here1")
 import pandas as pd
 import time
+import numpy as np
 from preprocessing import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
+# from feature_selection import run_feature_selection
+from feature_selection import perform_anova_test, perform_fdr_correction, volcano_plot_plotly
 
 # results_folder = r"C:\Users\i6338212\data\results"
 results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
@@ -25,7 +27,7 @@ params = {
     "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
 
-    "smoothing": "3x3_just_mask",
+    "smoothing": None,
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
@@ -49,7 +51,7 @@ def generate_run_name(params):
     ]
 
     if params["smoothing"]:
-        parts.append("3x3_just_mask_smoothing")
+        parts.append("neighbouring_smoothing")
 
     return "_".join(parts)
 
@@ -67,14 +69,31 @@ os.makedirs(run_folder, exist_ok=True)
 print(f"Results from {params['run_id']} will be saved to {run_folder}")
 
 start_time = time.perf_counter()
-# preprocessing_output = run_preprocessing(params, run_folder)
-preprocessing_output = {"n_features": "144"}
+preprocessing_output = run_preprocessing(params, run_folder)
+# preprocessing_output = {"n_features": "144"}
 dimensionality_red_output = run_dimensionality_reduction(
-    r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy",
+    preprocessing_output["matrix_path"],
     # r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",
     params, 
     run_folder)
+# run_feature_selection(params, run_folder)
+p_values = perform_anova_test(
+    matrix = dimensionality_red_output["matrix_scaled"], 
+    # f"{run_folder}\\{params['dimred']}_results.csv"
+    labels = dimensionality_red_output["labels"])
+reject, pvals_corrected = perform_fdr_correction(
+    p_values=p_values
+)
+volcano_plot_plotly(
+    dimensionality_red_output["matrix_scaled"], 
+    dimensionality_red_output["labels"], 
+    p_values, 
+    run_folder, 
+    pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values, 
+    params["run_id"]
+)
 metrics_output = run_clustering_metrics(dimensionality_red_output, run_folder, params)
+
 
 #updating results
 
