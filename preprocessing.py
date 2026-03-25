@@ -206,11 +206,7 @@ def linear_recalibration(data, reference_mz, reference_intensity, run_folder,
             print(f"Processed {i}/{n_pixels} pixels")
 
         pixel = np.array(X[i].todense()).flatten() if issparse(X) else X[i] # get each pixel spectrum as a dense array
-<<<<<<< Updated upstream
-        print(pixel.max())
-=======
         # print(pixel.max())
->>>>>>> Stashed changes
         # 1D array of intensities for the current pixel
         
         measured_peaks = [] # observed m/z in pixel
@@ -439,11 +435,7 @@ def filtering(
     return presence, filtered_spectra, filtered_mz
 
 
-<<<<<<< Updated upstream
-def tic_normalization(filtered_spectra: np.ndarray, 
-=======
 def tic_normalization(filtered_spectra: np.ndarray, run_folder:str,
->>>>>>> Stashed changes
                       target: float = 1.0):
     print("performing TIC normalization...")
     tic = filtered_spectra.sum(axis=1) # total ion current for each spectrum / for each pixel

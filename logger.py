@@ -9,7 +9,7 @@ from preprocessing import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 # from feature_selection import run_feature_selection
-from feature_selection import perform_anova_test, perform_fdr_correction, volcano_plot_plotly
+from feature_selection import perform_anova_test, perform_fdr_correction, volcano_plot_plotly, run_random_forest, reconstruct_and_plot_ion_images, combine_anova_rf
 
 # results_folder = r"C:\Users\i6338212\data\results"
 results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
@@ -27,17 +27,17 @@ params = {
     "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
 
-    "smoothing": None,
+    "smoothing": "8 connectivity",
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
 
-    "dimred": "pca", 
+    "dimred": "mnf", 
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters": 4
+    "n_clusters": 5
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -51,7 +51,7 @@ def generate_run_name(params):
     ]
 
     if params["smoothing"]:
-        parts.append("neighbouring_smoothing")
+        parts.append("_smoothing")
 
     return "_".join(parts)
 
@@ -69,6 +69,8 @@ os.makedirs(run_folder, exist_ok=True)
 print(f"Results from {params['run_id']} will be saved to {run_folder}")
 
 start_time = time.perf_counter()
+
+# PREPROCESSING + DIM REDUCTION
 preprocessing_output = run_preprocessing(params, run_folder)
 # preprocessing_output = {"n_features": "144"}
 dimensionality_red_output = run_dimensionality_reduction(
@@ -77,6 +79,9 @@ dimensionality_red_output = run_dimensionality_reduction(
     params, 
     run_folder)
 # run_feature_selection(params, run_folder)
+
+
+# ANOVA + FDR CORRECTION
 p_values = perform_anova_test(
     matrix = dimensionality_red_output["matrix_scaled"], 
     # f"{run_folder}\\{params['dimred']}_results.csv"
@@ -84,6 +89,15 @@ p_values = perform_anova_test(
 reject, pvals_corrected = perform_fdr_correction(
     p_values=p_values
 )
+
+anova_results_df = pd.DataFrame({
+        "mz": pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
+        "p_value": p_values,
+        "adjusted_p_value": pvals_corrected,
+        "significant_after_fdr": reject
+    })
+
+
 volcano_plot_plotly(
     dimensionality_red_output["matrix_scaled"], 
     dimensionality_red_output["labels"], 
@@ -92,7 +106,36 @@ volcano_plot_plotly(
     pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values, 
     params["run_id"]
 )
+
+# CLUSTERING METRICS
 metrics_output = run_clustering_metrics(dimensionality_red_output, run_folder, params)
+
+
+
+# RANDOM FOREST CLASSIFIER
+rf_dict = run_random_forest(dimensionality_red_output["matrix_scaled"], 
+                                dimensionality_red_output["labels"],
+                                pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values, 
+                                run_folder, 
+                                params["run_id"])
+
+#   COMBINE ANOVA W RF  
+consensus_df =  combine_anova_rf(
+    anova_results_df=anova_results_df,
+    rf_importances_df=rf_dict["importances_df"],
+    top_n_rf=100,
+    run_folder=run_folder,
+    name_of_run=params["run_id"],
+)
+
+
+reconstruct_and_plot_ion_images(dimensionality_red_output["matrix_scaled"], 
+                                dimensionality_red_output["mask"], 
+                                dimensionality_red_output["original_shape"],
+                                pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
+                                feature = consensus_df["mz"].iloc[0],
+                                rf_dict=rf_dict,
+                                run_folder=run_folder)
 
 
 #updating results
@@ -112,6 +155,7 @@ results_row = {
     # runtime
     "runtime_sec": time.perf_counter() - start_time
 }
+
 
 # logging results
 def log_experiment(results_csv, row_dict):

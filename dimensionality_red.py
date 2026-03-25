@@ -58,6 +58,7 @@ def load_and_preprocess_msi(
     # Load matrix
     matrix = np.load(file_path) 
     original_shape = (matrix.shape[0], matrix.shape[1]) if matrix.ndim == 3 else None
+    np.save(f"{run_folder}\\original_shape.npy", np.array(original_shape))
     print(f"Loaded matrix shape: {matrix.shape}")
     
     # # apply spatial smooothing 
@@ -101,12 +102,8 @@ def load_and_preprocess_msi(
 
     mask = np.sum(X, axis=1) > 0
     X = X[mask]
-<<<<<<< Updated upstream
-    noise = noise[mask]
-=======
     if noise is not None:
         noise = noise[mask]
->>>>>>> Stashed changes
     # save mask
     np.save(f"{run_folder}\\mask.npy", mask)
     print(f"Mask saved to {run_folder}\\mask.npy")
@@ -820,7 +817,7 @@ def plot_mnf_plotly(Z: np.ndarray,
     )
 
     fig.write_html(f"{run_folder}\\mnf_plot.html")
-    fig.show()
+    # fig.show()
 
 def plot_mnf_spatially(Z, 
                        mask, 
@@ -1093,7 +1090,22 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:s
 # peak picking: baseline, smoothing, 
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
+    results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
+    preprocessing_run_name = "xenium_laptop"
+    # reduction_name = "xenium_OMP_pca_umap10_k5_smoothing" # good segm but bg weird
+    reduction_name = "xenium_OMP_pca10_k4_3x3_smoothing" # good segm 
+    # reduction_name = "xenium_OMP_pca10_k4" # bad segm
+    run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
+
+    file_path = f"{run_folder}/matrix.npy"
+    matrix_nmf, mask, original_shape, noise = load_and_preprocess_msi(
+        file_path=file_path,
+        run_folder=run_folder,
+        # remove_zero_pixels=True,
+        save_raw=f"{run_folder}\\matrix_raw.npy",
+        save_scaled=f"{run_folder}\\matrix_scaled.npy"
+    )
 #     folder_name = "xenium_laptop"
 #     run_folder = os.path.join(
 #         results_folder,
@@ -1107,9 +1119,9 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:s
 #                                                               remove_zero_pixels=True,
 #                                                               save_raw=f"{run_folder}\\matrix_raw.npy",
 #                                                               save_scaled=f"{run_folder}\\matrix_scaled.npy")
-# #     # matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
-# #     # mask = np.load(f"{run_folder}\\mask.npy")
-# #     # original_shape = mask.shape
+    # matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
+    # mask = np.load(f"{run_folder}\\mask.npy")
+    # original_shape = mask.shape
 #     print(f"Loaded matrix with shape {original_shape}. Scaled matrix has shape {matrix_scaled.shape}")
 # #     # pca_transformed = perform_pca(matrix_scaled, n_components=10)
 # #     # save_preprocessed_matrix(pca_transformed, f"{run_folder}\\matrix_pca.npy")
@@ -1288,16 +1300,10 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             max_iterations=6000
         )
     elif params["dimred"] == "mnf":
-<<<<<<< Updated upstream
-        coords = get_pixel_coords(mask, original_shape)
-        embedding, top_components, eigvals = perform_mnf(
-            X = matrix_scaled,
-=======
         # coords = get_pixel_coords(mask, original_shape)
         embedding, top_components, eigvals = perform_mnf(
             # X = matrix_scaled,
             X = matrix_nmf,
->>>>>>> Stashed changes
             coords = coords, 
             noise = noise,  
             mask=mask,
@@ -1398,6 +1404,8 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         # "explained_variance": Optional = explained,
         # "spatial_map_file_path": ,
         "matrix_scaled": matrix_scaled,
+        "mask": mask,
+        "original_shape": original_shape,
         "labels": labels,
         "run_name": params["run_id"],
         "runtime": runtime,
