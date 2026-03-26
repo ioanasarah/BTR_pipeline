@@ -373,23 +373,76 @@ if __name__ == "__main__":
 
 # we want to know how many features are significant after FDR correction, and what is the minimum adjusted p-value. This will give us an idea of how many features we can select for downstream analysis.
 
-def run_feature_selection(params: dict, 
-                          run_folder: str):
-    matrix_scaled, embedding, labels = load_things(
-        raw_matrix_file_path=f"{run_folder}\\matrix.npy",
-        pca_file_path=f"{run_folder}\\pca_results.csv")
-    p_values = perform_anova_test(matrix=matrix_scaled, labels=labels)
-   
-    reject, pvals_corrected = perform_fdr_correction(p_values)
-    save_path = f"{run_folder}\\anova_results.csv"
-    anova_results_df = pd.DataFrame({
-        "mz": pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
-        "p_value": p_values,
-        "adjusted_p_value": pvals_corrected,
-        "significant_after_fdr": reject
-    })
-    anova_results_df.to_csv(save_path, index=False)
-    print(f"ANOVA results saved to {save_path}")
-    
+def run_feature_selection(
+        dimensionality_red_output: dict,
+        params: dict, 
+        run_folder: str):
+    matrix = dimensionality_red_output["matrix_scaled"]
+    labels = dimensionality_red_output["labels"]
+    mask = dimensionality_red_output["mask"]
+    original_shape = dimensionality_red_output["original_shape"]
+    name_of_run = params["run_id"]
+
     mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
-    volcano_plot_plotly(matrix_scaled, labels, p_values, mz_values)
+
+    p_values = perform_anova_test(
+    matrix = dimensionality_red_output["matrix_scaled"], 
+    # f"{run_folder}\\{params['dimred']}_results.csv"
+    labels = dimensionality_red_output["labels"])
+    reject, pvals_corrected = perform_fdr_correction(
+        p_values=p_values
+    )
+
+    #   ANOVA + FDR
+    anova_results_df = pd.DataFrame({
+            "mz": pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
+            "p_value": p_values,
+            "adjusted_p_value": pvals_corrected,
+            "significant_after_fdr": reject
+        })
+    anova_results_df.to_csv(f"{run_folder}\\anova_results_{name_of_run}.csv", index=False)
+
+    # VOLCANO PLOT
+    volcano_plot_plotly(
+        matrix=matrix,
+        labels=labels,
+        p_values=pvals_corrected, 
+        run_folder=run_folder,
+        mz_values=mz_values,
+        name_of_run=name_of_run,
+    )
+
+    # RANDOM FOREST
+    rf_dict = run_random_forest(
+        matrix=matrix,
+        labels=labels,
+        mz_values=mz_values,
+        run_folder=run_folder,
+        name_of_run=name_of_run,
+    )
+
+    # COMBO ANOVA/FDR + RFs
+    consensus_df = combine_anova_rf(
+        anova_results_df=anova_results_df,
+        rf_importances_df=rf_dict["importances_df"],
+        top_n_rf=100,
+        run_folder=run_folder,
+        name_of_run=name_of_run,
+    )
+
+    # PLOT ION IMAGES
+    reconstruct_and_plot_ion_images(
+        matrix_scaled=matrix,
+        mask=mask,
+        original_shape=original_shape,
+        mz_values=mz_values,
+        feature=consensus_df["mz"].iloc[0],
+        rf_dict=rf_dict,
+        run_folder=run_folder,
+    )
+
+    return {
+        "anova_results_df": anova_results_df,
+        "rf_dict": rf_dict,
+        "consensus_df": consensus_df,
+    }
