@@ -126,7 +126,7 @@ def volcano_plot_plotly(matrix,
     fig.add_vline(x=1, line_dash="dash")
     fig.add_vline(x=-1, line_dash="dash")
 
-    fig.show()
+    # fig.show()
     # fig.save(f"{results_folder}\\volcano_plot_k2_5x5_smoothing_raw_matrix.html")
     # save figure 
     fig.write_html(f"{run_folder}\\volcano_plot_{name_of_run}.html")

@@ -842,6 +842,7 @@ def plot_mnf_spatially(Z,
 
         save_path = f"{run_folder}\\mnf_component_{i+1}.png"
         plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
         print(f"Saved: {save_path}")
         plt.show()
@@ -1015,6 +1016,7 @@ def plot_spatial_map(spatial_map: np.ndarray,
 
    
     plt.savefig(f"{run_folder}\\spatial_map.png", dpi=300, bbox_inches='tight')
+    plt.close()
     print(f"Spatial map figure saved to {run_folder}\\spatial_map.png")
     print("Spatial map plotting complete. Took {:.2f} seconds".format(time.perf_counter() - start_time))
     plt.show()
@@ -1022,6 +1024,7 @@ def plot_spatial_map(spatial_map: np.ndarray,
 
 def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:str) -> None:
     inertias = []
+    plt.figure() 
     # k_range = range(1, 10)
 
     for k in k_range:
@@ -1033,9 +1036,10 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:s
     plt.xlabel("Number of clusters (k)")
     plt.ylabel("Inertia")
     plt.title("Elbow Method for Optimal k")
-    plt.savefig(f"{run_folder}\\ceva_elbow_method.png")
-    plt.show()
-    print(f"Elbow method plot saved to {run_folder}\\ceva_elbow_method.png. Took {time.perf_counter() - start_time:.2f} seconds")
+    plt.savefig(f"{run_folder}\\elbow_method.png")
+    # plt.show()
+    plt.close()
+    print(f"Elbow method plot saved to {run_folder}\\elbow_method.png. Took {time.perf_counter() - start_time:.2f} seconds")
 
 # umap_transformed = perform_umap(
 #     matrix_scaled, 

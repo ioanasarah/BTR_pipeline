@@ -11,100 +11,68 @@ from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
 # from feature_selection import perform_anova_test, perform_fdr_correction, volcano_plot_plotly, run_random_forest, reconstruct_and_plot_ion_images, combine_anova_rf
 
-# results_folder = r"C:\Users\i6338212\data\results"
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
-results_csv = os.path.join(results_folder, "experiment_results.csv")
 
+batch_mode = True
+# batch_runner = True
+slide_filter = "DHB Slide 11 50 um" # None to run all slides
+
+
+results_folder = r"C:\Users\i6338212\data\results"
+# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
+results_csv = os.path.join(results_folder, "liver_experiment_results.csv")
+
+batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 
 # reduction_name = "OMP_pca10_k3_no_smoothing"
 
 # run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
 # os.makedirs(run_folder, exist_ok=True)
 
-params = {
-    "dataset": "xenium",
-    "computer": "laptop",
-    "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
 
-    "smoothing": "8 connectivity",
+single_params= {
+    "tissue": "liver",
+    "dataset": "liver",
+    "computer": "PC",
+    "experiment": "liver_PC",
+    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
+    # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
+
+    # "smoothing": "8_connectivity",
+    "smoothing": None,
+    "filtering": "median",
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
 
-    "dimred": "mnf", 
+    "dimred": "pca", 
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters": 5
+    "n_clusters": 3
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
 
-def generate_run_name(params):
+def generate_method_name(params):
+    """Just the method combo — no dataset. Used as the grouping folder."""
     parts = [
-        params["dataset"],
         params["peak_method"],
         params["dimred"].lower() + str(params["n_components"]),
-        "k" + str(params["n_clusters"]),
+        params["clustering"].lower() + str(params["n_clusters"]),
     ]
+    if params.get("smoothing"):
+        parts.append("smoothing")
 
-    if params["smoothing"]:
-        parts.append("_smoothing")
-
+    if params.get("filtering"):
+        parts.append(f"{params['filtering']}_filtering")
+    
     return "_".join(parts)
 
-
-# running everything
-params["run_id"] = generate_run_name(params)
-folder_name = f"{params['dataset']}_{params['computer']}"
-run_folder = os.path.join(
-        results_folder,
-        folder_name,
-        params["run_id"]
-    )
-os.makedirs(run_folder, exist_ok=True)
-
-print(f"Results from {params['run_id']} will be saved to {run_folder}")
-
-start_time = time.perf_counter()
-
-# PREPROCESSING + DIM REDUCTION
-preprocessing_output = run_preprocessing(params, run_folder)
-# preprocessing_output = {"n_features": "144"}
-dimensionality_red_output = run_dimensionality_reduction(
-    preprocessing_output["matrix_path"],
-    # r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",
-    params, 
-    run_folder)
-# run_feature_selection(params, run_folder)
-
-feature_selection_output = run_feature_selection(
-    dimensionality_red_output=dimensionality_red_output,
-    run_folder=run_folder,
-    params=params,
-)
-
-#updating results
-
-results_row = {
-    **params,
-
-    # preprocessing
-    "n_features": preprocessing_output["n_features"],
-
-    # clustering
-    "n_clusters_found": dimensionality_red_output["n_clusters_found"],
-
-    # metrics
-    **metrics_output,
-
-    # runtime
-    "runtime_sec": time.perf_counter() - start_time
-}
-
-
+def generate_run_name(params):
+    """Full run ID including dataset — used as the leaf folder."""
+    return f"{params['dataset']}_{generate_method_name(params)}"
 # logging results
 def log_experiment(results_csv, row_dict):
     df_new = pd.DataFrame([row_dict])
@@ -117,6 +85,79 @@ def log_experiment(results_csv, row_dict):
 
     df.to_csv(results_csv, index=False)
 
-log_experiment(results_csv, results_row)
+
+
+def run_pipeline(params: dict):
+    params["run_id"] = generate_run_name(params)
+    folder_name = f"{params['tissue']}_{params['computer']}"
+    run_folder = os.path.join(
+            results_folder,
+            f"{params['tissue']}_{params['computer']}",
+            generate_method_name(params),
+            generate_run_name(params)
+        )
+    os.makedirs(run_folder, exist_ok=True)
+
+    print(f"Results from {params['run_id']} will be saved to {run_folder}")
+
+    start_time = time.perf_counter()
+
+    # PREPROCESSING + DIM REDUCTION
+    preprocessing_output = run_preprocessing(params, run_folder)
+    # preprocessing_output = {"n_features": "144"}
+    dimensionality_red_output = run_dimensionality_reduction(
+        preprocessing_output["matrix_path"],
+        # r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",
+        params, 
+        run_folder)
+    # run_feature_selection(params, run_folder)
+
+    feature_selection_output = run_feature_selection(
+        dimensionality_red_output=dimensionality_red_output,
+        run_folder=run_folder,
+        params=params,
+    )
+
+    metrics_output = run_clustering_metrics(
+        dimensionality_red_output,
+        run_folder,
+        params
+    )
+
+    #updating results
+
+    results_row = {
+        **params,
+
+        # preprocessing
+        "n_features": preprocessing_output["n_features"],
+
+        # clustering
+        "n_clusters_found": dimensionality_red_output["n_clusters_found"],
+
+        # metrics
+        **metrics_output,
+
+        # runtime
+        "runtime_sec": time.perf_counter() - start_time
+    }
+
+    log_experiment(results_csv, results_row)
+
+
+
+if __name__ == "__main__":
+    if batch_mode:
+        print("Running batch mode!")
+        from batch_runner import collect_batch_params
+        print("Imported batch runner things ")
+        all_params = collect_batch_params(batch_root, slide_filter, single_params)
+        print(f"Batch mode: {len(all_params)} runs found")
+        for i, p in enumerate(all_params, 1):
+            print(f"-------------------------------- Starting sample {i}/{len(all_params)}: {p['sample_name']}-----------------------------------------------------------------")
+            run_pipeline(p)
+    else:
+        run_pipeline(single_params)
+
 
 print("Full run completed and logged.")

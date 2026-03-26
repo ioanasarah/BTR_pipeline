@@ -12,6 +12,7 @@ from sklearn.linear_model import OrthogonalMatchingPursuit
 import pandas as pd
 import os
 import scipy.sparse
+from scipy.signal import medfilt
 from scipy.sparse import issparse
 # import msiwarp as mw
 
@@ -39,8 +40,8 @@ def compute_average_spectrum(
         ):
     
     print("computing average spectrum...")
-    data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
-    # data = spatial_data["msi_dataset_z0"]
+    # data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
+    data = spatial_data["msi_dataset_z0"]
     mz = data.var["mz"].values
     avg_intensity = data.uns["average_spectrum"] # unstructured annotation within anndata object
     # average intensity at each m/z across all pixels
@@ -59,6 +60,8 @@ def compute_average_spectrum(
     # plt.title("Average Mass Spectrum")
     # plt.show()
     return data, mz, avg_intensity, average_spectrum
+
+
 
 
 
@@ -276,6 +279,23 @@ def msiwarp_recalibration(data, reference_mz, reference_intensity):
 
 # ... code to store the warped spectra
 
+
+
+
+def median_filter_spectrum(intensity, kernel_size=5):
+    """
+    Apply median filter to smooth spectrum before peak detection.
+
+    kernel_size must be odd (e.g., 3, 5, 7).
+    """
+    print(f"Applying median filter (kernel size = {kernel_size})...")
+    
+    filtered = medfilt(intensity, kernel_size=kernel_size)
+
+    
+    return filtered 
+
+
 def peak_detection_mad(
         mz, 
         avg_intensity, 
@@ -307,6 +327,8 @@ def peak_detection_mad(
     peak_intensities = avg_intensity[peak_idxs]
     print(f"Detected {len(peak_mz)} peaks in {time.perf_counter() - start_time:.2f} seconds") # should have below 800 peaks ish
     return peak_mz, peak_intensities
+
+
 
 
 def peak_detection_omp(mz, 
@@ -542,9 +564,37 @@ def run_preprocessing(params, run_folder):
     spatial_data = reading_data(params["zarr_path"])
     AnnData, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
 
-    peak_mz, peak_intensities = peak_detection_omp(
-        mz, avg_intensity, run_folder, non_zero_coefs=params["omp_coefs"]
-    )
+
+    if params["filtering"] == "median":
+        filtered_avg_intensity = median_filter_spectrum(
+            avg_intensity,
+            kernel_size=5  # tune this!
+        )
+
+        print("filtering...")
+            #  debug plot
+        plt.figure(figsize=(12, 4))
+        plt.plot(mz, avg_intensity, label="Original", alpha=0.5)
+        plt.plot(mz, filtered_avg_intensity, label="Median filtered", linewidth=2)
+        plt.legend()
+        plt.title("Median filtering effect")
+        plt.savefig(f"{run_folder}/median_filter_debug.png", dpi=150)
+        plt.close()
+    else:
+        pass
+
+    if params["peak_method"] == "OMP":
+        peak_mz, peak_intensities = peak_detection_omp(
+            mz, filtered_avg_intensity , run_folder, non_zero_coefs=params["omp_coefs"]
+        )
+
+    else:
+        peak_mz, peak_intensities = peak_detection_mad(
+        mz, 
+        filtered_avg_intensity, 
+        window_size=20, 
+        snr=2
+        )
 
     bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
     pooled_spectra, pooled_mz = pooling(AnnData.X, mz, bins)
