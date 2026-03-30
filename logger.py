@@ -11,15 +11,14 @@ from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
 # from feature_selection import perform_anova_test, perform_fdr_correction, volcano_plot_plotly, run_random_forest, reconstruct_and_plot_ion_images, combine_anova_rf
 
-
-batch_mode = True
+batch_mode = False
 # batch_runner = True
 slide_filter = "DHB Slide 11 50 um" # None to run all slides
 
 
-results_folder = r"C:\Users\i6338212\data\results"
-# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
-results_csv = os.path.join(results_folder, "liver_experiment_results.csv")
+# results_folder = r"C:\Users\i6338212\data\results"
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
+results_csv = os.path.join(results_folder, "experiment_results.csv")
 
 batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 
@@ -30,27 +29,27 @@ batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 
 
 single_params= {
-    "tissue": "liver",
-    "dataset": "liver",
-    "computer": "PC",
+    "tissue": "xenium",
+    "dataset": "xenium",
+    "computer": "laptop",
     "experiment": "liver_PC",
-    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
+    "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
-    # "smoothing": "8_connectivity",
-    "smoothing": None,
-    "filtering": "median",
+    "smoothing": "8_connectivity",
+    # "smoothing": None,
+    "filtering": None,
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
 
-    "dimred": "pca", 
+    "dimred": "mnf", 
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters": 3
+    "n_clusters": 5
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -93,7 +92,7 @@ def run_pipeline(params: dict):
     run_folder = os.path.join(
             results_folder,
             f"{params['tissue']}_{params['computer']}",
-            generate_method_name(params),
+            # generate_method_name(params),
             generate_run_name(params)
         )
     os.makedirs(run_folder, exist_ok=True)

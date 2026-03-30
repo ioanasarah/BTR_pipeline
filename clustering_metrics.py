@@ -62,30 +62,44 @@ def percentage_abnormal_edge_pixels(spatial_map) -> float:
     return paep
 
 
-# spatial_map_file_path = f"{run_folder}\\spatial_map_matrix_{reduction_name}.npy"
-# spatial_map = np.load(spatial_map_file_path)
-# paep = percentage_abnormal_edge_pixels(spatial_map)
-    
+if __name__ == "__main__":
+    run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca_umap10_kmeans4_smoothing"
+    reduction_name = "xenium_OMP_pca_umap10_k5_smoothing"
+
+    data = pd.read_csv(f"{run_folder}/umap_results.csv")
+    print("Data loaded in {:.2f} seconds".format(time.perf_counter() - start_time))
+
+    labels = data.iloc[:, -1] # cluster labels are in the last column
+    pca_transformed = data.iloc[:, :-1] # umap embeddings in the first two columns
+    print("Extracted labels and embeddings in {:.2f} seconds".format(time.perf_counter() - start_time))
 
 
-# # silhouette_avg = silhouette_score(umap_embeddings, labels)
-# davies_bouldin_avg = davies_bouldin_score(pca_transformed, labels)
-# calinski_harabasz_avg = calinski_harabasz_score(pca_transformed, labels)
-# # rand_score = rand_score(labels, labels) # need ground truth labels for this
-# # print(f"Silhouette Score: {silhouette_avg:.4f}")
 
-# print(f"Davies-Bouldin Score: {davies_bouldin_avg:.4f}")
-# print(f"Calinski-Harabasz Score: {calinski_harabasz_avg:.4f}")
-# # print("Clustering metrics calculated in {:.2f} seconds".format(time.perf_counter() - start_time))
+    # spatial_map_file_path = f"{run_folder}\\spatial_map_matrix_{reduction_name}.npy"
+    spatial_map_file_path = r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca_umap10_kmeans4_smoothing\spatial_map_matrix_xenium_OMP_pca_umap10_kmeans4_smoothing.npy"
+    spatial_map = np.load(spatial_map_file_path)
+    paep = percentage_abnormal_edge_pixels(spatial_map)
+        
 
-# # save metrics to a text file
-# with open(f"{run_folder}/clustering_metrics_{reduction_name}.txt", "w") as f:
-#     # f.write(f"Silhouette Score: {silhouette_avg:.4f}\n")
-#     f.write(f"Davies-Bouldin Score: {davies_bouldin_avg:.4f}\n")
-#     f.write(f"Calinski-Harabasz Score: {calinski_harabasz_avg:.4f}\n")
-#     f.write(f"Percentage of abnormal edge pixels: {paep:.4f}\n%")
 
-# print("Clustering metrics saved to file. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
+    # silhouette_avg = silhouette_score(umap_embeddings, labels)
+    davies_bouldin_avg = davies_bouldin_score(pca_transformed, labels)
+    calinski_harabasz_avg = calinski_harabasz_score(pca_transformed, labels)
+    # rand_score = rand_score(labels, labels) # need ground truth labels for this
+    # print(f"Silhouette Score: {silhouette_avg:.4f}")
+
+    print(f"Davies-Bouldin Score: {davies_bouldin_avg:.4f}")
+    print(f"Calinski-Harabasz Score: {calinski_harabasz_avg:.4f}")
+    # print("Clustering metrics calculated in {:.2f} seconds".format(time.perf_counter() - start_time))
+
+    # save metrics to a text file
+    with open(f"{run_folder}/clustering_metrics_{reduction_name}.txt", "w") as f:
+        # f.write(f"Silhouette Score: {silhouette_avg:.4f}\n")
+        f.write(f"Davies-Bouldin Score: {davies_bouldin_avg:.4f}\n")
+        f.write(f"Calinski-Harabasz Score: {calinski_harabasz_avg:.4f}\n")
+        f.write(f"Percentage of abnormal edge pixels: {paep:.4f}\n%")
+
+    print("Clustering metrics saved to file. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
 
 def run_clustering_metrics(dimensionality_red_output, run_folder, params):
     spatial_map_file_path = f"{run_folder}\\spatial_map_matrix_{params['run_id']}.npy"

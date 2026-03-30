@@ -40,8 +40,8 @@ def compute_average_spectrum(
         ):
     
     print("computing average spectrum...")
-    # data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
-    data = spatial_data["msi_dataset_z0"]
+    data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
+    # data = spatial_data["msi_dataset_z0"]
     mz = data.var["mz"].values
     avg_intensity = data.uns["average_spectrum"] # unstructured annotation within anndata object
     # average intensity at each m/z across all pixels
@@ -562,24 +562,24 @@ def reshaping_to_3d_matrix(
 
 def run_preprocessing(params, run_folder):
     spatial_data = reading_data(params["zarr_path"])
-    AnnData, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
+    AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
 
 
     if params["filtering"] == "median":
         filtered_avg_intensity = median_filter_spectrum(
-            avg_intensity,
+            filtered_avg_intensity,
             kernel_size=5  # tune this!
         )
 
         print("filtering...")
             #  debug plot
-        plt.figure(figsize=(12, 4))
-        plt.plot(mz, avg_intensity, label="Original", alpha=0.5)
-        plt.plot(mz, filtered_avg_intensity, label="Median filtered", linewidth=2)
-        plt.legend()
-        plt.title("Median filtering effect")
-        plt.savefig(f"{run_folder}/median_filter_debug.png", dpi=150)
-        plt.close()
+        # plt.figure(figsize=(12, 4))
+        # plt.plot(mz, filtered_avg_intensity, label="Original", alpha=0.5)
+        # plt.plot(mz, filtered_avg_intensity, label="Median filtered", linewidth=2)
+        # plt.legend()
+        # plt.title("Median filtering effect")
+        # plt.savefig(f"{run_folder}/median_filter_debug.png", dpi=150)
+        # plt.close()
     else:
         pass
 

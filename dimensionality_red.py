@@ -1313,13 +1313,14 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             mask=mask,
             n_components=params.get("n_components", 10)
         )
+        embedding_small = embedding[:, 2:]
     else:
         raise ValueError(f"Unknown dimred method: {params['dimred']}")
 
     # clustering
     if params["clustering"] == "kmeans":
         labels = kmeans_clustering(
-            embedding,
+            embedding_small,
             n_clusters=params["n_clusters"],
             random_state=params.get("random_state", 42)
         )
@@ -1373,7 +1374,8 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         plot_nmf_plotly(
             embedding, 
             labels, 
-            run_folder
+            run_folder, 
+            params["run_id"]
         )
     elif params["dimred"] == "mnf":
         save_mnf_results(embedding, 
