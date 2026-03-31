@@ -48,7 +48,7 @@ from pathlib import Path
 from sympy import re
 
 
-print(os.path.exists(r"C:\Ioana\GitHub\BTR_pipeline\results\liver_pc\OMP_spca10_k4"))
+# print(os.path.exists(r"C:\Ioana\GitHub\BTR_pipeline\results\liver_pc\OMP_spca10_k4"))
 
 
 
@@ -61,7 +61,8 @@ print(os.path.exists(r"C:\Ioana\GitHub\BTR_pipeline\results\liver_pc\OMP_spca10_
 
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
-RESULTS_FOLDER = r"C:\Ioana\GitHub\BTR_pipeline\results\liver_pc\OMP_spca10_k4"  # change as needed
+# RESULTS_FOLDER = r"C:\Ioana\GitHub\BTR_pipeline\results\liver_pc\OMP_spca10_k4"  # change as needed
+RESULTS_FOLDER = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4_smoothing"
 CSV_PATTERN = "**/*rf_feature*.csv"  # recursive search
 THRESHOLD      = 0.4                      # 75%
 MZ_COL         = "mz"                          # column name for m/z values
