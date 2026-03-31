@@ -21,6 +21,13 @@ import re
 #     }
 
 matrix = "DHB"
+matrix_keyword = "matrix"
+
+
+def is_matrix_zarr(name:str) -> bool:
+    return any(matrix_keyword in name.lower())
+
+
 
 
 def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) -> list[dict]:
@@ -62,6 +69,10 @@ def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) 
             if f.endswith(".zarr") and os.path.isdir(os.path.join(slide_path, f))
         ]
 
+        # separate matrix from sample files 
+        matrix_zarrs = [os.path.join(slide_path, f) for f in zarr_files if is_matrix_zarr(f)]
+        sample_zarrs = [f for f in zarr_files if not is_matrix_zarr(f)]
+
         for zarr_file in sorted(zarr_files):
             sample_name = zarr_file.replace(".zarr", "")
             zarr_path   = os.path.join(slide_path, zarr_file)
@@ -70,6 +81,7 @@ def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) 
             params = {
                 **base_params,
                 "zarr_path":   zarr_path,
+                "matrix_zarr_paths": matrix_zarrs,
                 "dataset":     f"{matrix}_{sample_name}".replace(" ", "_"),
                 "slide":       slide_folder,
                 "matrix":      matrix,

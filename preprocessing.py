@@ -2,6 +2,7 @@ import os
 import time
 import numpy as np
 import spatialdata as sd
+import anndata as ad
 # import spatialdata_plot  # noqa: F401
 import matplotlib
 matplotlib.use("Agg")  
@@ -280,7 +281,19 @@ def msiwarp_recalibration(data, reference_mz, reference_intensity):
 # ... code to store the warped spectra
 
 
+def load_and_tack_matrix(sample_adata, matrix_zarr_paths: list):
+    # matrk existing sample pixels 
+    sample_adata.obs["is_matrix"] = False
+    matrix_adata = []
+    for mzp in matrix_zarr_paths:
+        msd = sd.read_zarr(mzp)
+        m_adata = list(msd.tables.values())[0]
+        m_adata =.obs ["is_matrix"] = True
+        matrix_adata.append(m_adata)
 
+    combined = ad.concat([sample_adata] + matrix_adata, join = "inner")
+    n_matrix_pixels = sum(len(m.obs) for m in matrix_adata)
+    print(f"stacked {n_matrix_pixels} matrix pixels onto {len(sample_adata.obs)} sample pixels")
 
 def median_filter_spectrum(intensity, kernel_size=5):
     """
