@@ -281,19 +281,64 @@ def msiwarp_recalibration(data, reference_mz, reference_intensity):
 # ... code to store the warped spectra
 
 
-def load_and_tack_matrix(sample_adata, matrix_zarr_paths: list):
-    # matrk existing sample pixels 
-    sample_adata.obs["is_matrix"] = False
-    matrix_adata = []
-    for mzp in matrix_zarr_paths:
-        msd = sd.read_zarr(mzp)
-        m_adata = list(msd.tables.values())[0]
-        m_adata =.obs ["is_matrix"] = True
-        matrix_adata.append(m_adata)
+def stack_matrix_spatially(sample_matrix_3d: np.ndarray,
+                            matrix_zarr_path: str,
+                            filtered_mz: np.ndarray,
+                            mz_axis: np.ndarray,
+                            gap: int=5):
+    msd = sd.read_zarr(matrix_zarr_path)
+    matrix_adata = list(msd.tables.values())[0]
 
-    combined = ad.concat([sample_adata] + matrix_adata, join = "inner")
-    n_matrix_pixels = sum(len(m.obs) for m in matrix_adata)
-    print(f"stacked {n_matrix_pixels} matrix pixels onto {len(sample_adata.obs)} sample pixels")
+    m_x = matrix_adata.obs["x"].astype(int)
+    m_y = matrix_adata.obs["y"].astype(int)
+
+    m_width = m_x.max() + 1
+    m_height = m_y.max() + 1
+    n_mz = sample_matrix_3d.shape[2]
+
+    # build matrix onl spatial blocl
+    matrix_block = np.zeros((m_height, m_width, n_mz), dtype=sample_matrix_3d.dtype)
+    X = matrix_adata.X
+    if scipy.sparse.issparse(X):
+        X = X.toarray()
+
+    # select only the columns matching the filtered m/z values from preprocessing 
+    peak_idxs = [np.argmin(np.abs(mz_axis - mz)) for mz in filtered_mz] 
+    X = X[:, peak_idxs] 
+    # now shape is (n_matrix_pixels, 226) 
+    
+    # TIC normalise matrix pixels to match sample normalisation 
+    tic = X.sum(axis=1) 
+    tic = np.where(tic == 0, 1, tic) 
+    X = X / tic[:, np.newaxis]
+
+
+
+    for i, (xi, yi) in enumerate(zip(m_x, m_y)):
+        matrix_block[yi, xi, :] = X[i]
+    
+
+    # build combined array
+    s_height, s_width, _ = sample_matrix_3d.shape
+    new_height = m_height + gap + s_height
+    new_width = max(m_width, s_width)
+
+    combined = np.zeros((new_height, new_width, n_mz), dtype=sample_matrix_3d.dtype)
+
+    # matrix block o top left
+    combined [:m_height, :m_width, :] = matrix_block
+    # sample below gap
+    offset = m_height + gap
+    combined[offset:offset + s_height, :s_width, :] = sample_matrix_3d
+
+
+    print(f"[stack_matrix_spatially] Matrix block: rows 0–{m_height}, cols 0–{m_width}") 
+    print(f"[stack_matrix_spatially] Sample block: rows {offset}–{offset + s_height}") 
+    print(f"[stack_matrix_spatially] Combined shape: {combined.shape}")
+
+    return combined, offset
+    
+
 
 def median_filter_spectrum(intensity, kernel_size=5):
     """
@@ -574,52 +619,110 @@ def reshaping_to_3d_matrix(
 # # # Reshaped matrix shape: (1469, 1007, 142) in 13.56 seconds
 
 def run_preprocessing(params, run_folder):
-    spatial_data = reading_data(params["zarr_path"])
-    AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
+    if params.get("batch_mode", False):
+        print("Running batch mode")
+        sample_zarr_paths = params["sample_zarr_paths"]
+        
+        sample_matrices = []
+        sample_mz_lists = []
+        full_mz_axes = []
+        for i, zarr-paths in enumate(sample_zarr_paths):
+            matrix_3d, filtered_mz, full_mz = preprocess_single_sample(
+                zarr_path, params, run_folder
+            )
+            sample_matrices.append(matrix_3d)
+            sample_mz_lists.append(filtered_mz)
+            full_mz_axes.appears(full_mz)
 
-
-    if params["filtering"] == "median":
-        filtered_avg_intensity = median_filter_spectrum(
-            filtered_avg_intensity,
-            kernel_size=5  # tune this!
+        # harmonise to common mz axis 
+        reindexed_matrices, common_mz = harmonise_mz_axes(
+            sample_matrices, 
+            sample_mz_lists,
+            full_mz_axes, 
+            tol=0.01
         )
 
-        print("filtering...")
-            #  debug plot
-        # plt.figure(figsize=(12, 4))
-        # plt.plot(mz, filtered_avg_intensity, label="Original", alpha=0.5)
-        # plt.plot(mz, filtered_avg_intensity, label="Median filtered", linewidth=2)
-        # plt.legend()
-        # plt.title("Median filtering effect")
-        # plt.savefig(f"{run_folder}/median_filter_debug.png", dpi=150)
-        # plt.close()
+        pd.DataFrame({"mz": common_mz}).to_csv(
+            f"{run_folder}/filtered_mz_values.csv", index=False
+        )
+
+        # buil mosaic 
+        mosaic, sample_offset = bulild_slide_mosaic(
+            reindexed_matrices,
+            n_pra = params.get("n_pra", len(reindexed_matrices) // 2),
+            matrix_zarr_path = params.get("matrix_zarr_path"),
+            common_mz=common_mz,
+            full_mz_axis=full_mz_axes[0],
+            gap=10
+        )
+
+        np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
+        np.save(f"{run_folder}/matrix.npy", mosaic)
+        print(f"Mosaic shape: {mosaic.shape}")
+
+        return {
+            "matrix_path": f"{run_folder}/matrix.npy",
+            "n_features": mosaic.shape[-1]
+        }
+
     else:
-        pass
+        spatial_data = reading_data(params["zarr_path"])
+        AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
 
-    if params["peak_method"] == "OMP":
-        peak_mz, peak_intensities = peak_detection_omp(
-            mz, filtered_avg_intensity , run_folder, non_zero_coefs=params["omp_coefs"]
-        )
 
-    else:
-        peak_mz, peak_intensities = peak_detection_mad(
-        mz, 
-        filtered_avg_intensity, 
-        window_size=20, 
-        snr=2
-        )
+        if params["filtering"] == "median":
+            filtered_avg_intensity = median_filter_spectrum(
+                filtered_avg_intensity,
+                kernel_size=5  # tune this!
+            )
 
-    bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
-    pooled_spectra, pooled_mz = pooling(AnnData.X, mz, bins)
-    _, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz, run_folder)
+            print("filtering...")
+                #  debug plot
+            # plt.figure(figsize=(12, 4))
+            # plt.plot(mz, filtered_avg_intensity, label="Original", alpha=0.5)
+            # plt.plot(mz, filtered_avg_intensity, label="Median filtered", linewidth=2)
+            # plt.legend()
+            # plt.title("Median filtering effect")
+            # plt.savefig(f"{run_folder}/median_filter_debug.png", dpi=150)
+            # plt.close()
+        else:
+            pass
 
-    normalized_matrix = tic_normalization(filtered_spectra, run_folder)
+        if params["peak_method"] == "OMP":
+            peak_mz, peak_intensities = peak_detection_omp(
+                mz, filtered_avg_intensity , run_folder, non_zero_coefs=params["omp_coefs"]
+            )
 
-    matrix = reshaping_to_3d_matrix(AnnData, normalized_matrix)
+        else:
+            peak_mz, peak_intensities = peak_detection_mad(
+            mz, 
+            filtered_avg_intensity, 
+            window_size=20, 
+            snr=2
+            )
 
-    np.save(f"{run_folder}/matrix.npy", matrix)
+        bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
+        pooled_spectra, pooled_mz = pooling(AnnData.X, mz, bins)
+        _, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz, run_folder)
 
-    return {
-        "matrix_path": f"{run_folder}/matrix.npy",
-        "n_features": matrix.shape[-1]
-    }
+        normalized_matrix = tic_normalization(filtered_spectra, run_folder)
+
+        matrix = reshaping_to_3d_matrix(AnnData, normalized_matrix)
+
+        matrix_zarr_path = params.get("matrix_zarr_path")
+        print(f"[preprocessing] about to call stack_matrix_spatially with: {matrix_zarr_path}")
+        if matrix_zarr_path:
+            matrix, sample_offset = stack_matrix_spatially(matrix, 
+            matrix_zarr_path, 
+            filtered_mz,
+            mz_axis=mz,
+            gap=5)
+            np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
+        else:
+            print("[preprocessing] WARNING: matrix_zarr_path is None, skipping stacking")
+
+        np.save(f"{run_folder}/matrix.npy", matrix) 
+        return { 
+            "matrix_path": f"{run_folder}/matrix.npy", 
+            "n_features": matrix.shape[-1]
+            }

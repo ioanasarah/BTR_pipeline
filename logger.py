@@ -11,8 +11,8 @@ from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
 # from feature_selection import perform_anova_test, perform_fdr_correction, volcano_plot_plotly, run_random_forest, reconstruct_and_plot_ion_images, combine_anova_rf
 
-batch_mode = False
-# batch_mode = True
+# batch_mode = False
+batch_mode = True
 slide_filter = "DHB Slide 11 50 um" # None to run all slides
 
 
@@ -29,15 +29,16 @@ batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 
 
 single_params= {
-    "tissue": "hippocampus",
-    "dataset": "xenium",
-    "computer": "PC",
+    "batch_mode": True,
+    "tissue": "liver",
+    "dataset": "liver",
+    "computer": "pc",
     "experiment": "liver_PC",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
     "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
-    "smoothing": "8_connectivity",
+    "smoothing": None,
     # "smoothing": None,
     "filtering": None,
     "peak_method": "OMP",
@@ -147,6 +148,7 @@ def run_pipeline(params: dict):
 
 if __name__ == "__main__":
     if batch_mode:
+
         print("Running batch mode!")
         from batch_runner import collect_batch_params
         print("Imported batch runner things ")
