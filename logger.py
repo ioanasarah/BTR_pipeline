@@ -152,9 +152,9 @@ if __name__ == "__main__":
         from batch_runner import collect_batch_params
         print("Imported batch runner things ")
         all_params = collect_batch_params(batch_root, slide_filter, single_params)
-        print(f"Batch mode: {len(all_params)} runs found")
+        # print(f"Batch mode: {len(all_params)} runs found")
         for i, p in enumerate(all_params, 1):
-            print(f"-------------------------------- Starting sample {i}/{len(all_params)}: {p['sample_name']}-----------------------------------------------------------------")
+            # print(f"-------------------------------- Starting sample {i}/{len(all_params)}: {p['sample_name']}-----------------------------------------------------------------")
             run_pipeline(p)
     else:
         run_pipeline(single_params)

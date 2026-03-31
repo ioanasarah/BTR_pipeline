@@ -100,8 +100,8 @@ def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) 
         #     zarr_path   = os.path.join(slide_path, zarr_file)
 
             # Build a param dict for this specific zarr
-            params = { **base_params, # list of full paths, pra first then 1hnr 
-            "batch_mode" = True, 
+        params = { **base_params, # list of full paths, pra first then 1hnr 
+            "batch_mode": True, 
             "sample_zarr_paths": [os.path.join(slide_path, f) for f in pra_zarrs] + [os.path.join(slide_path, f) for f in hnr_zarrs], 
             "sample_names": [f.replace(".zarr", "") for f in pra_zarrs] + [f.replace(".zarr", "") for f in hnr_zarrs], 
             "n_pra": len(pra_zarrs), # so preprocessing knows row split 
@@ -112,8 +112,8 @@ def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) 
             "sample_name": slide_folder, # used for run_id 
             }
 
-            print(f"[batch_runner] matrix_zarr_path for {sample_name}: {matrix_zarr_path}")
-            all_params.append(params)
+        # print(f"[batch_runner] matrix_zarr_path for {sample_name}: {matrix_zarr_path}")
+        all_params.append(params)
 
     print(f"[batch_runner] Found {len(all_params)} zarr files across {len(slide_folders)} slides.")
     return all_params
