@@ -371,77 +371,144 @@ def preprocess_single_sample(zarr_path: str, params: dict, run_folder: str):
     return matrix_3d, filtered_mz, mz
 
 
-def harmonise_mz_axes(sample_matrices: list, 
-                    sample_mz_lists: list,
-                    full_mz_axes: list,
-                    tol: float = 0.01,
-                    min_presence=0.7) -> tuple:
-    """
-    Find the intersection of all filtered_mz lists (within tolerance),
-    then reindex each sample matrix to the common axis.
-    Returns: (list of reindexed 3D matrices, common_mz array)
-    """
-    print("[harmonise] Finding common m/z axis (intersection)...")
+# def harmonise_mz_axes(sample_matrices: list, 
+#                     sample_mz_lists: list,
+#                     full_mz_axes: list,
+#                     tol: float = 0.01,
+#                     min_presence=0.7) -> tuple:
+#     """
+#     Find the intersection of all filtered_mz lists (within tolerance),
+#     then reindex each sample matrix to the common axis.
+#     Returns: (list of reindexed 3D matrices, common_mz array)
+#     """
+#     print("[harmonise] Finding common m/z axis (intersection)...")
 
-    # start with first sample's mz list as reference
-    common_mz = sample_mz_lists[0].copy()
+#     # start with first sample's mz list as reference
+#     common_mz = sample_mz_lists[0].copy()
 
+#     for i, mz_list in enumerate(sample_mz_lists):
+#         print(f"  Sample {i+1}: {len(mz_list)} peaks, range {mz_list.min():.2f}–{mz_list.max():.2f}")
+
+#     n_samples = len(sample_mz_lists)
+#     min_count = int(np.ceil(min_presence * n_samples))
+
+#     all_peaks = np.sort(np.concatenate(sample_mz_lists))
+
+#     bins = []
+#     i = 0 
+#     while i < len(all_peaks):
+#         cluster = [all_peaks[i]]
+#         j = i+1 
+#         while j < len(all_peaks) and all_peaks[j] - all_peaks[i] <= tol:
+#             cluster.append(all_peaks[j])
+#             j=+1
+#         bins.append((np.mean(cluster), len(cluster)))
+#         i=j
+
+
+#     # common_mz = sample_mz_lists[0].copy()
+#     common_mz = []
+#     # print(f"  Starting with {len(common_mz)} peaks from sample 1")
+
+#     for bin_center, _ in bins:
+#         count = sum(
+#             1 for mz_list in sample_mz_lists
+#             if np.any(np.abs(mz_list - bin_center) <=tol)
+#         )
+#         if count >= min_count:
+#             common_mz.append(bin_center)
+
+
+#     common_mz = np.array(common_mz)
+#     for i, mz_list in enumerate(sample_mz_lists[1:], 2):
+#         matched = []
+#         for mz in common_mz:
+#             # keep only if this mz appears in the other sample within tolerance
+#             if np.any(np.abs(mz_list - mz) <= tol):
+#                 matched.append(mz)
+#         common_mz = np.array(matched)
+
+#     print(f"[harmonise] Common m/z peaks: {len(common_mz)}")
+
+#     # reindex each sample matrix to common_mz
+#     reindexed = []
+#     for i, (matrix_3d, filtered_mz) in enumerate(zip(sample_matrices, sample_mz_lists)):
+#         h, w, _ = matrix_3d.shape
+#         new_matrix = np.zeros((h, w, len(common_mz)), dtype=matrix_3d.dtype)
+#         for new_idx, target_mz in enumerate(common_mz):
+#             # find closest peak in this sample's filtered_mz
+#             old_idx = np.argmin(np.abs(filtered_mz - target_mz))
+#             if np.abs(filtered_mz[old_idx] - target_mz) <= tol:
+#                 new_matrix[:, :, new_idx] = matrix_3d[:, :, old_idx]
+#             # else leave as zeros (peak absent in this sample)
+#         reindexed.append(new_matrix)
+
+#     return reindexed, common_mz
+
+def harmonise_mz_axes(sample_matrices, sample_mz_lists, full_mz_axes,
+                       tol=0.05, min_presence=0.7):
+    print("[harmonise] Building common m/z axis...")
     for i, mz_list in enumerate(sample_mz_lists):
         print(f"  Sample {i+1}: {len(mz_list)} peaks, range {mz_list.min():.2f}–{mz_list.max():.2f}")
 
     n_samples = len(sample_mz_lists)
     min_count = int(np.ceil(min_presence * n_samples))
 
+    # pool and sort all peaks
     all_peaks = np.sort(np.concatenate(sample_mz_lists))
 
-    bins = []
-    i = 0 
+    # greedily bin close peaks into cluster centres
+    bin_centers = []
+    i = 0
     while i < len(all_peaks):
-        cluster = [all_peaks[i]]
-        j = i+1 
+        j = i + 1
         while j < len(all_peaks) and all_peaks[j] - all_peaks[i] <= tol:
-            cluster.append(all_peaks[j])
-            j=+1
-        bins.append((np.mean(cluster), len(cluster)))
-        i=j
+            j += 1
+        bin_centers.append(np.mean(all_peaks[i:j]))
+        i = j
+    bin_centers = np.array(bin_centers)
+    print(f"[harmonise] Total candidate bins: {len(bin_centers)}")
 
+    # count presence per bin — process one sample at a time, no large matrix
+    counts = np.zeros(len(bin_centers), dtype=int)
+    for mz_list in sample_mz_lists:
+        mz_sorted = np.sort(mz_list)
+        for k, center in enumerate(bin_centers):
+            # binary search — O(log n) instead of O(n)
+            idx = np.searchsorted(mz_sorted, center)
+            found = False
+            for offset in [-1, 0, 1]:  # check nearest neighbours only
+                j = idx + offset
+                if 0 <= j < len(mz_sorted) and abs(mz_sorted[j] - center) <= tol:
+                    found = True
+                    break
+            if found:
+                counts[k] += 1
 
-    # common_mz = sample_mz_lists[0].copy()
-    common_mz = []
-    # print(f"  Starting with {len(common_mz)} peaks from sample 1")
+    common_mz = bin_centers[counts >= min_count]
+    print(f"[harmonise] Common peaks (>={min_presence*100:.0f}% of samples): {len(common_mz)}")
 
-    for bin_center, _ in bins:
-        count = sum(
-            1 for mz_list in sample_mz_lists
-            if np.any(np.abs(mz_list - bin_center) <=tol)
-        )
-        if count >= min_count:
-            common_mz.append(bin_center)
-
-
-    common_mz = np.array(common_mz)
-    for i, mz_list in enumerate(sample_mz_lists[1:], 2):
-        matched = []
-        for mz in common_mz:
-            # keep only if this mz appears in the other sample within tolerance
-            if np.any(np.abs(mz_list - mz) <= tol):
-                matched.append(mz)
-        common_mz = np.array(matched)
-
-    print(f"[harmonise] Common m/z peaks: {len(common_mz)}")
-
-    # reindex each sample matrix to common_mz
+    # reindex each sample matrix to common_mz — one sample at a time
     reindexed = []
     for i, (matrix_3d, filtered_mz) in enumerate(zip(sample_matrices, sample_mz_lists)):
         h, w, _ = matrix_3d.shape
-        new_matrix = np.zeros((h, w, len(common_mz)), dtype=matrix_3d.dtype)
+        new_matrix = np.zeros((h, w, len(common_mz)), dtype=np.float32)  # float32 saves memory
+        mz_sorted = np.sort(filtered_mz)
+        mz_sorted_idx = np.argsort(filtered_mz)
+
         for new_idx, target_mz in enumerate(common_mz):
-            # find closest peak in this sample's filtered_mz
-            old_idx = np.argmin(np.abs(filtered_mz - target_mz))
-            if np.abs(filtered_mz[old_idx] - target_mz) <= tol:
-                new_matrix[:, :, new_idx] = matrix_3d[:, :, old_idx]
-            # else leave as zeros (peak absent in this sample)
+            idx = np.searchsorted(mz_sorted, target_mz)
+            for offset in [-1, 0, 1]:
+                j = idx + offset
+                if 0 <= j < len(mz_sorted) and abs(mz_sorted[j] - target_mz) <= tol:
+                    orig_idx = mz_sorted_idx[j]
+                    new_matrix[:, :, new_idx] = matrix_3d[:, :, orig_idx]
+                    break
+
+        print(f"  Sample {i+1}: reindexed to {len(common_mz)} common peaks", flush=True)
         reindexed.append(new_matrix)
+        # free original matrix from memory immediately
+        sample_matrices[i] = None
 
     return reindexed, common_mz
 
