@@ -12,7 +12,7 @@ from feature_selection import run_feature_selection
 # from feature_selection import perform_anova_test, perform_fdr_correction, volcano_plot_plotly, run_random_forest, reconstruct_and_plot_ion_images, combine_anova_rf
 
 # batch_mode = False
-batch_mode = True
+# batch_mode = True
 slide_filter = "DHB Slide 11 50 um" # None to run all slides
 
 
@@ -147,8 +147,7 @@ def run_pipeline(params: dict):
 
 
 if __name__ == "__main__":
-    if batch_mode:
-
+    if single_params["batch_mode"]:
         print("Running batch mode!")
         from batch_runner import collect_batch_params
         print("Imported batch runner things ")

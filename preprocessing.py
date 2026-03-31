@@ -339,6 +339,181 @@ def stack_matrix_spatially(sample_matrix_3d: np.ndarray,
     return combined, offset
     
 
+def preprocess_single_sample(zarr_path: str, params: dict, run_folder: str):
+    """
+    Run preprocessing on one sample zarr.
+    Returns the 3D normalised matrix and its filtered_mz axis.
+    """
+    spatial_data = reading_data(zarr_path)
+    data, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
+
+    if params.get("filtering") == "median":
+        avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
+
+    if params["peak_method"] == "OMP":
+        peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
+                                         non_zero_coefs=params["omp_coefs"])
+    else:
+        peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
+
+    bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
+    pooled_spectra, pooled_mz = pooling(data.X, mz, bins)
+    _, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz, run_folder)
+    normalised = tic_normalization(filtered_spectra, run_folder)
+    matrix_3d = reshaping_to_3d_matrix(data, normalised)
+
+    return matrix_3d, filtered_mz, mz
+
+
+def harmonise_mz_axes(sample_matrices: list, sample_mz_lists: list,
+                       full_mz_axes: list, tol: float = 0.01) -> tuple:
+    """
+    Find the intersection of all filtered_mz lists (within tolerance),
+    then reindex each sample matrix to the common axis.
+    Returns: (list of reindexed 3D matrices, common_mz array)
+    """
+    print("[harmonise] Finding common m/z axis (intersection)...")
+
+    # start with first sample's mz list as reference
+    common_mz = sample_mz_lists[0].copy()
+
+    for mz_list in sample_mz_lists[1:]:
+        matched = []
+        for mz in common_mz:
+            # keep only if this mz appears in the other sample within tolerance
+            if np.any(np.abs(mz_list - mz) <= tol):
+                matched.append(mz)
+        common_mz = np.array(matched)
+
+    print(f"[harmonise] Common m/z peaks: {len(common_mz)}")
+
+    # reindex each sample matrix to common_mz
+    reindexed = []
+    for matrix_3d, filtered_mz, full_mz in zip(sample_matrices, sample_mz_lists, full_mz_axes):
+        h, w, _ = matrix_3d.shape
+        new_matrix = np.zeros((h, w, len(common_mz)), dtype=matrix_3d.dtype)
+        for new_idx, target_mz in enumerate(common_mz):
+            # find closest peak in this sample's filtered_mz
+            old_idx = np.argmin(np.abs(filtered_mz - target_mz))
+            if np.abs(filtered_mz[old_idx] - target_mz) <= tol:
+                new_matrix[:, :, new_idx] = matrix_3d[:, :, old_idx]
+            # else leave as zeros (peak absent in this sample)
+        reindexed.append(new_matrix)
+
+    return reindexed, common_mz
+
+
+def build_slide_mosaic(sample_matrices: list, n_pra: int,
+                        matrix_zarr_path: str, common_mz: np.ndarray,
+                        full_mz_axis: np.ndarray, gap: int = 10) -> tuple:
+    """
+    Arrange samples in 2 rows (pra top, 1hnr bottom), with matrix block top-left.
+    Returns combined 3D mosaic and a dict of sample offsets for provenance.
+    """
+    pra_matrices = sample_matrices[:n_pra]
+    hnr_matrices = sample_matrices[n_pra:]
+
+    def make_row(matrices, gap):
+        # pad all to same height, then concatenate horizontally with gaps
+        max_h = max(m.shape[0] for m in matrices)
+        n_mz  = matrices[0].shape[2]
+        row_parts = []
+        for m in matrices:
+            h, w, _ = m.shape
+            # pad height if needed
+            pad = np.zeros((max_h - h, w, n_mz), dtype=m.dtype)
+            m_padded = np.concatenate([m, pad], axis=0)
+            row_parts.append(m_padded)
+            # add horizontal gap
+            row_parts.append(np.zeros((max_h, gap, n_mz), dtype=m.dtype))
+        return np.concatenate(row_parts, axis=1)
+
+    pra_row = make_row(pra_matrices, gap)
+    hnr_row = make_row(hnr_matrices, gap)
+
+    # pad rows to same width
+    n_mz   = common_mz.shape[0]
+    max_w  = max(pra_row.shape[1], hnr_row.shape[1])
+
+    def pad_width(row, target_w):
+        if row.shape[1] < target_w:
+            pad = np.zeros((row.shape[0], target_w - row.shape[1], n_mz), dtype=row.dtype)
+            return np.concatenate([row, pad], axis=1)
+        return row
+
+    pra_row = pad_width(pra_row, max_w)
+    hnr_row = pad_width(hnr_row, max_w)
+
+    # vertical gap between rows
+    row_gap = np.zeros((gap, max_w, n_mz), dtype=pra_row.dtype)
+    sample_block = np.concatenate([pra_row, row_gap, hnr_row], axis=0)
+
+    # add matrix block top-left
+    if matrix_zarr_path:
+        sample_block, sample_offset = stack_matrix_spatially(
+            sample_block, matrix_zarr_path,
+            filtered_mz=common_mz,
+            mz_axis=full_mz_axis,
+            gap=gap
+        )
+    else:
+        sample_offset = 0
+
+    print(f"[build_slide_mosaic] Final mosaic shape: {sample_block.shape}")
+    return sample_block, sample_offset
+
+
+def run_preprocessing(params, run_folder):
+    """Slide-level preprocessing: preprocess each sample, harmonise, build mosaic."""
+
+    sample_zarr_paths = params.get("sample_zarr_paths")
+
+    # if running in old single-sample mode, fall back gracefully
+    if not sample_zarr_paths:
+        sample_zarr_paths = [params["zarr_path"]]
+
+    print(f"[preprocessing] Processing {len(sample_zarr_paths)} samples for slide mosaic...")
+
+    sample_matrices = []
+    sample_mz_lists = []
+    full_mz_axes    = []
+
+    for i, zarr_path in enumerate(sample_zarr_paths):
+        print(f"[preprocessing] Sample {i+1}/{len(sample_zarr_paths)}: {os.path.basename(zarr_path)}")
+        matrix_3d, filtered_mz, full_mz = preprocess_single_sample(zarr_path, params, run_folder)
+        sample_matrices.append(matrix_3d)
+        sample_mz_lists.append(filtered_mz)
+        full_mz_axes.append(full_mz)
+
+    # harmonise to common m/z axis
+    reindexed_matrices, common_mz = harmonise_mz_axes(
+        sample_matrices, sample_mz_lists, full_mz_axes, tol=0.01
+    )
+
+    # save common mz for feature selection downstream
+    pd.DataFrame({"mz": common_mz}).to_csv(
+        f"{run_folder}/filtered_mz_values.csv", index=False
+    )
+
+    # build mosaic
+    mosaic, sample_offset = build_slide_mosaic(
+        reindexed_matrices,
+        n_pra=params.get("n_pra", len(reindexed_matrices) // 2),
+        matrix_zarr_path=params.get("matrix_zarr_path"),
+        common_mz=common_mz,
+        full_mz_axis=full_mz_axes[0],  # all share same raw mz axis
+        gap=10
+    )
+
+    np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
+    np.save(f"{run_folder}/matrix.npy", mosaic)
+
+    print(f"[preprocessing] Mosaic saved. Shape: {mosaic.shape}")
+
+    return {
+        "matrix_path": f"{run_folder}/matrix.npy",
+        "n_features":  mosaic.shape[-1]
+    }
 
 def median_filter_spectrum(intensity, kernel_size=5):
     """
@@ -626,13 +801,13 @@ def run_preprocessing(params, run_folder):
         sample_matrices = []
         sample_mz_lists = []
         full_mz_axes = []
-        for i, zarr-paths in enumate(sample_zarr_paths):
+        for i, zarr_path in enumerate(sample_zarr_paths):
             matrix_3d, filtered_mz, full_mz = preprocess_single_sample(
                 zarr_path, params, run_folder
             )
             sample_matrices.append(matrix_3d)
             sample_mz_lists.append(filtered_mz)
-            full_mz_axes.appears(full_mz)
+            full_mz_axes.append(full_mz)
 
         # harmonise to common mz axis 
         reindexed_matrices, common_mz = harmonise_mz_axes(
@@ -647,7 +822,7 @@ def run_preprocessing(params, run_folder):
         )
 
         # buil mosaic 
-        mosaic, sample_offset = bulild_slide_mosaic(
+        mosaic, sample_offset = build_slide_mosaic(
             reindexed_matrices,
             n_pra = params.get("n_pra", len(reindexed_matrices) // 2),
             matrix_zarr_path = params.get("matrix_zarr_path"),
