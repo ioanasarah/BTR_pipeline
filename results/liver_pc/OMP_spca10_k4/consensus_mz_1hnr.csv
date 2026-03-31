@@ -1,0 +1,8 @@
+mz,n_files_present,pct_files_present,mean_importance,files_present
+176.0149,3,60.0,0.029969,rf_feature_importances_DHB_10_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_1_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_49_1hnr_OMP_spca10_k4.csv
+374.1274,3,60.0,0.029919,rf_feature_importances_DHB_1_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_21_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_49_1hnr_OMP_spca10_k4.csv
+333.1635,2,40.0,0.033079,rf_feature_importances_DHB_10_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_21_1hnr_OMP_spca10_k4.csv
+550.147,2,40.0,0.026642,rf_feature_importances_DHB_1_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_21_1hnr_OMP_spca10_k4.csv
+184.1025,2,40.0,0.021491,rf_feature_importances_DHB_1_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_49_1hnr_OMP_spca10_k4.csv
+197.0228,2,40.0,0.020499,rf_feature_importances_DHB_1_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_49_1hnr_OMP_spca10_k4.csv
+361.1413,2,40.0,0.023524,rf_feature_importances_DHB_21_1hnr_OMP_spca10_k4.csv; rf_feature_importances_DHB_49_1hnr_OMP_spca10_k4.csv
