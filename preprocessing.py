@@ -870,7 +870,7 @@ def run_preprocessing(params, run_folder):
     full_mz_axes    = []
 
     for i, zarr_path in enumerate(sample_zarr_paths):
-        print(f"[preprocessing] Sample {i+1}/{len(sample_zarr_paths)}: {os.path.basename(zarr_path)}")
+        print(f"----------------------------------------------- Sample {i+1}/{len(sample_zarr_paths)}: {os.path.basename(zarr_path)}-----------------------------------------------------------")
         matrix_3d, filtered_mz, full_mz = preprocess_single_sample(zarr_path, params, run_folder)
         sample_matrices.append(matrix_3d)
         sample_mz_lists.append(filtered_mz)
