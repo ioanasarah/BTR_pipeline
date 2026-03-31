@@ -344,6 +344,12 @@ def preprocess_single_sample(zarr_path: str, params: dict, run_folder: str):
     Run preprocessing on one sample zarr.
     Returns the 3D normalised matrix and its filtered_mz axis.
     """
+
+    sample_name = os.path.basename(zarr_path).replace(".zarr", "")
+    sample_folder = os.path.join(run_folder, "per_sample", sample_name)
+    os.makedirs(sample_folder, exist_ok=True)
+
+    
     spatial_data = reading_data(zarr_path)
     data, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
 
@@ -377,7 +383,14 @@ def harmonise_mz_axes(sample_matrices: list, sample_mz_lists: list,
     # start with first sample's mz list as reference
     common_mz = sample_mz_lists[0].copy()
 
-    for mz_list in sample_mz_lists[1:]:
+    for i, mz_list in enumerate(sample_mz_lists):
+        print(f"  Sample {i+1}: {len(mz_list)} peaks, range {mz_list.min():.2f}–{mz_list.max():.2f}")
+
+
+    common_mz = sample_mz_lists[0].copy()
+    print(f"  Starting with {len(common_mz)} peaks from sample 1")
+
+    for i, mz_list in enumerate(sample_mz_lists[1:], 2):
         matched = []
         for mz in common_mz:
             # keep only if this mz appears in the other sample within tolerance
