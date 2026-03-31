@@ -147,7 +147,7 @@ def run_random_forest(
     rf = RandomForestClassifier(
         n_estimators=n_estimators,
         max_features="sqrt",   
-        max_samples = 0.1,   
+        # max_samples = 0.5,   
         class_weight="balanced",  # handles unequal cluster sizes
         random_state=42,
         n_jobs=n_jobs,

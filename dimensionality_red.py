@@ -1320,7 +1320,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     # clustering
     if params["clustering"] == "kmeans":
         labels = kmeans_clustering(
-            embedding_small,
+            embedding,
             n_clusters=params["n_clusters"],
             random_state=params.get("random_state", 42)
         )
