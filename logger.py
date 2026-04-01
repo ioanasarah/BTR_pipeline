@@ -13,7 +13,8 @@ from feature_selection import run_feature_selection
 
 # batch_mode = False
 # batch_mode = True
-slide_filter = "DHB Slide 11 50 um" # None to run all slides
+slide_filter = "DHB Slide 4 50 um" # None to run all slides
+#  DHB Slide 4 50 um
 
 
 results_folder = r"C:\Users\i6338212\data\results"
@@ -47,11 +48,11 @@ single_params= {
     "bin_tol": 0.005,
     "matrix_ratio_threshold": 7.5, 
 
-    "dimred": "pca", 
+    "dimred": "spca", 
     "n_components": 10,
 
-    "clustering": "hdbscan",
-    "n_clusters": 6
+    "clustering": "kmeans",
+    "n_clusters": 4
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }

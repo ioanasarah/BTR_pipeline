@@ -993,7 +993,7 @@ def plot_spatial_map(spatial_map: np.ndarray,
 
     image = ax.imshow(
             spatial_map_shifted,
-            cmap="viridis",
+            cmap=cmap,
             interpolation='nearest',
             vmin=0
             # vmax=n_clusters + 2

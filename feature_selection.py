@@ -286,11 +286,11 @@ def reconstruct_and_plot_ion_images(
 if __name__ == "__main__":
     start_time = time.perf_counter()
     results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-    preprocessing_run_name = "xenium_laptop"
+    preprocessing_run_name = "liver_PC"
     # reduction_name = "xenium_OMP_pca_umap10_k5_smoothing" # good segm but bg weird
-    reduction_name = "xenium_OMP_pca10_k4_3x3_smoothing" # good segm 
+    reduction_name = "OMP_pca10_kmeans4_select_matrix" # good segm 
     # reduction_name = "xenium_OMP_pca10_k4" # bad segm
-    run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
+    run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4_select_matrix\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
     mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
 
 
@@ -299,76 +299,100 @@ if __name__ == "__main__":
         raw_matrix_file_path=f"{run_folder}\\matrix_scaled.npy",
         file_path=f"{run_folder}\\pca_results.csv")
     
-    p_values = perform_anova_test(
-    matrix = matrix_scaled, 
-        # f"{run_folder}\\{params['dimred']}_results.csv"
-    labels = labels)
-    reject, pvals_corrected = perform_fdr_correction(
-        p_values=p_values
-    )
+    # p_values = perform_anova_test(
+    # matrix = matrix_scaled, 
+    #     # f"{run_folder}\\{params['dimred']}_results.csv"
+    # labels = labels)
+    # reject, pvals_corrected = perform_fdr_correction(
+    #     p_values=p_values
+    # )
+    from scipy.stats import ttest_ind
 
+    cluster_a = 1
+    cluster_b = 2
+
+    cluster0 = matrix_scaled[labels == cluster_a]
+    cluster1 = matrix_scaled[labels == cluster_b]
+
+    p_values = np.array([
+        ttest_ind(cluster0[:, i], cluster1[:, i], equal_var=False).pvalue
+        for i in range(matrix_scaled.shape[1])
+    ])
+
+    reject, pvals_corrected = perform_fdr_correction(p_values)
     anova_results_df = pd.DataFrame({
-            "mz": pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
-            "p_value": p_values,
-            "adjusted_p_value": pvals_corrected,
-            "significant_after_fdr": reject
-        })
-        
-    rf_dict = run_random_forest(matrix_scaled, 
-                                labels,
-                                mz_values, 
-                                run_folder, 
-                                reduction_name)
+        "mz": mz_values,
+        "p_value": p_values,
+        "adjusted_p_value": pvals_corrected,
+        "significant_after_fdr": reject
+    })
+
+    volcano_plot_plotly(
+        matrix=matrix_scaled,
+        labels=labels,
+        p_values=pvals_corrected,   # ✅ use corrected p-values
+        run_folder=run_folder,
+        mz_values=mz_values,
+        name_of_run="cluster1_vs_cluster2",
+        cluster_a=cluster_a,
+        cluster_b=cluster_b
+    )
+            
+#     rf_dict = run_random_forest(matrix_scaled, 
+#                                 labels,
+#                                 mz_values, 
+#                                 run_folder, 
+#                                 reduction_name)
     
-    mask = np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca10_k4_3x3_smoothing\mask.npy")
-    for cluster_id in labels.unique():
-        mask = labels == cluster_id
-        cluster_means = matrix_scaled[mask].mean(axis=0)
-        overall_means = matrix_scaled.mean(axis=0)
-        enrichment = cluster_means / (overall_means + 1e-9)
-        top_idx = np.argsort(enrichment)[::-1][:5]
-        print(f"Cluster {cluster_id} top enriched m/z: {mz_values[top_idx]}")
+#     mask = np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca10_k4_3x3_smoothing\mask.npy")
+#     for cluster_id in labels.unique():
+#         mask = labels == cluster_id
+#         cluster_means = matrix_scaled[mask].mean(axis=0)
+#         overall_means = matrix_scaled.mean(axis=0)
+#         enrichment = cluster_means / (overall_means + 1e-9)
+#         top_idx = np.argsort(enrichment)[::-1][:5]
+#         print(f"Cluster {cluster_id} top enriched m/z: {mz_values[top_idx]}")
 
 
-    mask = np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca10_k4_3x3_smoothing\mask.npy")
-    mask = np.squeeze(np.asarray(mask))
-    # print(mask.shape)
-    # print(mask.ndim)
+#     mask = np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca10_k4_3x3_smoothing\mask.npy")
+#     mask = np.squeeze(np.asarray(mask))
+#     # print(mask.shape)
+#     # print(mask.ndim)
 
-    original_shape = tuple(np.load(f"{run_folder}\\original_shape.npy"))
+#     original_shape = tuple(np.load(f"{run_folder}\\original_shape.npy"))
 
     
-    reconstruct_and_plot_ion_images(matrix_scaled=matrix_scaled, 
-                                    mask=mask, 
-                                    original_shape=original_shape,
-                                    mz_values=mz_values,
-                                    feature = 534.22335607,
-                                    rf_dict=rf_dict,
-                                    run_folder=run_folder)
+#     reconstruct_and_plot_ion_images(matrix_scaled=matrix_scaled, 
+#                                     mask=mask, 
+#                                     original_shape=original_shape,
+#                                     mz_values=mz_values,
+#                                     feature = 534.22335607,
+#                                     rf_dict=rf_dict,
+#                                     run_folder=run_folder)
   
 
-    consensus_df =  combine_anova_rf(
-    anova_results_df=anova_results_df,
-    rf_importances_df=rf_dict["importances_df"],
-    top_n_rf=100,
-    run_folder=run_folder,
-    name_of_run=reduction_name,
-    )
+#     consensus_df =  combine_anova_rf(
+#     anova_results_df=anova_results_df,
+#     rf_importances_df=rf_dict["importances_df"],
+#     top_n_rf=100,
+#     run_folder=run_folder,
+#     name_of_run=reduction_name,
+#     )
 
-    # p_values = perform_anova_test(matrix=matrix_scaled, labels=labels)
+#     # p_values = perform_anova_test(matrix=matrix_scaled, labels=labels)
    
-#     reject, pvals_corrected = perform_fdr_correction(p_values)
-#     save_path = f"{run_folder}\\anova_results.csv"
-#     anova_results_df = pd.DataFrame({
-#         "mz": pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_tic_omp\filtered_mz_values.csv")["mz"].values,
-#         "p_value": p_values,
-#         "adjusted_p_value": pvals_corrected,
-#         "significant_after_fdr": reject
-#     })
-#     anova_results_df.to_csv(save_path, index=False)
-#     print(f"ANOVA results saved to {save_path}")
+# #     reject, pvals_corrected = perform_fdr_correction(p_values)
+# #     save_path = f"{run_folder}\\anova_results.csv"
+# #     anova_results_df = pd.DataFrame({
+# #         "mz": pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_tic_omp\filtered_mz_values.csv")["mz"].values,
+# #         "p_value": p_values,
+# #         "adjusted_p_value": pvals_corrected,
+# #         "significant_after_fdr": reject
+# #     })
+# #     anova_results_df.to_csv(save_path, index=False)
+# #     print(f"ANOVA results saved to {save_path}")
     
-#     mz_values = pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\filtered_mz_values.csv")["mz"].values
+#     mz_values = pd.read_csv(r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4_select_matrix\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4\filtered_mz_values.csv")["mz"].values
 #     volcano_plot_plotly(matrix_scaled, labels, p_values, mz_values)
 
 # we want to know how many features are significant after FDR correction, and what is the minimum adjusted p-value. This will give us an idea of how many features we can select for downstream analysis.
