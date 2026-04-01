@@ -600,7 +600,7 @@ def stack_matrix_spatially(sample_matrix_3d: np.ndarray,
 #     return reindexed, common_mz
 
 def harmonise_mz_axes(sample_matrices, sample_mz_lists, full_mz_axes,
-                       tol=0.05, min_presence=0.7):
+                       tol=0.05, min_presence=0.5):
     print("[harmonise] Building common m/z axis...")
     for i, mz_list in enumerate(sample_mz_lists):
         print(f"  Sample {i+1}: {len(mz_list)} peaks, range {mz_list.min():.2f}–{mz_list.max():.2f}")
@@ -1094,7 +1094,7 @@ def run_preprocessing(params, run_folder):
             matrix_peaks_df = identify_matrix_peaks(
                 matrix_zarr_path=matrix_zarr_path,
                 sample_zarr_paths=params["sample_zarr_paths"],
-                candidate_mz=candidate_mz,
+                candidate_mz=ref_peak_mz,
                 run_folder=run_folder,
                 top_n_images=20
             )
@@ -1103,6 +1103,7 @@ def run_preprocessing(params, run_folder):
             matrix_peaks_df = identify_matrix_peaks(
                 matrix_zarr_path=matrix_zarr_path,
                 sample_zarr_paths=params["sample_zarr_paths"],
+                candidate_mz=ref_peak_mz,
                 run_folder=run_folder,
                 top_n_images=20
             )
@@ -1118,7 +1119,7 @@ def run_preprocessing(params, run_folder):
 
         # harmonise to common m/z axis
         reindexed_matrices, common_mz = harmonise_mz_axes(
-            sample_matrices, sample_mz_lists, full_mz_axes, tol=0.01
+            sample_matrices, sample_mz_lists, full_mz_axes, tol=0.05
         )
 
         # save common mz for feature selection downstream

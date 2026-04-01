@@ -45,13 +45,13 @@ single_params= {
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
-    "matrix_ratio_threshold": None, 
+    "matrix_ratio_threshold": 7.5, 
 
     "dimred": "pca", 
     "n_components": 10,
 
-    "clustering": "kmeans",
-    "n_clusters": 4
+    "clustering": "hdbscan",
+    "n_clusters": 6
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
