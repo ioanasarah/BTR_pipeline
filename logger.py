@@ -106,7 +106,7 @@ def run_pipeline(params: dict):
 
     # PREPROCESSING + DIM REDUCTION
     preprocessing_output = run_preprocessing(params, run_folder)
-    preprocessing_output = {"n_features": "144"}
+    # preprocessing_output = {"n_features": "144"}
     dimensionality_red_output = run_dimensionality_reduction(
         # preprocessing_output["matrix_path"],
         f"{run_folder}/matrix.npy",

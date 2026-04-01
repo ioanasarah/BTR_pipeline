@@ -1043,8 +1043,12 @@ def preprocess_single_sample(zarr_path: str,
             peak_mz,
             matrix_peaks_df,
             ratio_threshold=params["matrix_ratio_threshold"],
-            tol=params.get("bin_tol", 0.1)
+            tol=0.1
         )
+
+        print(f"[preprocess_single_sample] peaks before matrix filter: {len(peak_mz) + len(removed)}")
+        print(f"[preprocess_single_sample] peaks after matrix filter: {len(peak_mz)}")
+        print(f"[preprocess_single_sample] removed matrix peaks: {removed}")
         pd.DataFrame({"mz": removed}).to_csv(
             os.path.join(sample_folder, "removed_matrix_peaks.csv"), index=False
         )
