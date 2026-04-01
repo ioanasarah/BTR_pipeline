@@ -1332,6 +1332,8 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     else:
         raise ValueError(f"Unknown clustering method")
 
+
+    n_clusters_found=len(set(labels)) - (1 if -1 in labels else 0)
     # save results and plot
     if params["dimred"] == "pca":
         save_pca_results(embedding, labels, f"{run_folder}\\pca_results.csv")

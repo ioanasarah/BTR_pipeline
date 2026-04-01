@@ -107,7 +107,8 @@ def run_pipeline(params: dict):
     preprocessing_output = run_preprocessing(params, run_folder)
     preprocessing_output = {"n_features": "144"}
     dimensionality_red_output = run_dimensionality_reduction(
-        preprocessing_output["matrix_path"],
+        # preprocessing_output["matrix_path"],
+        f"{run_folder}/matrix.npy",
         # r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",
         params, 
         run_folder)

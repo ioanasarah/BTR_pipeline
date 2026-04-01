@@ -283,8 +283,9 @@ def msiwarp_recalibration(data, reference_mz, reference_intensity):
 
 def identify_matrix_peaks(matrix_zarr_path: str,
                            sample_zarr_paths: list,
+                           candidate_mz: np.ndarray,
                            run_folder: str,
-                           top_n_images: int = 20,
+                           top_n_images: int = 50,
                            tol: float = 0.1) -> pd.DataFrame:
 
     # load matrix zarr and get average spectrum
@@ -302,32 +303,57 @@ def identify_matrix_peaks(matrix_zarr_path: str,
 
     # mean across all 10 samples — shape (57800,)
     sample_avg = np.mean(sample_avgs, axis=0)
-    # each m/z bin we want to see how much higher it is in matrix vs samples
-    ratio = matrix_avg / (sample_avg + 1e-9) # 1e-9 to avoid division by 0
+    
+    
+    # for each candidate peak, find the closest bin in the raw mz axis
+    results_rows = []
+    for mz_val in candidate_mz:
+        col_idx = np.argmin(np.abs(mz_axis - mz_val))
+        results_rows.append({
+            "mz":         mz_val,
+            "matrix_avg": matrix_avg[col_idx],
+            "sample_avg": sample_avg[col_idx],
+            "ratio":      matrix_avg[col_idx] / (sample_avg[col_idx] + 1e-9)
+        })
 
-    # build df
-    results_df = pd.DataFrame({
-        "mz":         mz_axis,      
-        "matrix_avg": matrix_avg,   # avg intensity in matrix pixels
-        "sample_avg": sample_avg,   # avg intensity in sample pixels
-        "ratio":      ratio         # matrix_avg / sample_avg
-    }).sort_values("ratio", ascending=False).reset_index(drop=True)
+    results_df = pd.DataFrame(results_rows).sort_values(
+        "ratio", ascending=False
+    ).reset_index(drop=True)
+    results_df["rank"] = results_df.index + 1
 
+    print(f"[identify_matrix_peaks] Evaluating {len(candidate_mz)} OMP peaks")
+    print(results_df[["rank", "mz", "ratio"]].head(60).to_string())
 
-    # checking hings 
-    print("Matrix avg max:", matrix_avg.max())
-    print("Matrix avg mean:", matrix_avg.mean())
-    print("Sample avg max:", sample_avg.max())
-    print("Sample avg mean:", sample_avg.mean())
-
-
-
-
-    results_df["rank"] = results_df.index + 1  # rank 1 = most matrix-like
-
-    # save the full ranked list as csv
     csv_path = os.path.join(run_folder, "matrix_peak_candidates.csv")
     results_df.to_csv(csv_path, index=False)
+
+
+
+    # # each m/z bin we want to see how much higher it is in matrix vs samples
+    # ratio = matrix_avg / (sample_avg + 1e-9) # 1e-9 to avoid division by 0
+
+    # # build df
+    # results_df = pd.DataFrame({
+    #     "mz":         mz_axis,      
+    #     "matrix_avg": matrix_avg,   # avg intensity in matrix pixels
+    #     "sample_avg": sample_avg,   # avg intensity in sample pixels
+    #     "ratio":      ratio         # matrix_avg / sample_avg
+    # }).sort_values("ratio", ascending=False).reset_index(drop=True)
+    # results_df["rank"] = results_df.index + 1  # rank 1 = most matrix-like
+
+
+    # # checking hings 
+    # print("Matrix avg max:", matrix_avg.max())
+    # print("Matrix avg mean:", matrix_avg.mean())
+    # print("Sample avg max:", sample_avg.max())
+    # print("Sample avg mean:", sample_avg.mean())
+
+    # print(results_df[["rank", "mz", "ratio"]].head(60).to_string())
+
+
+    # # save the full ranked list as csv
+    # csv_path = os.path.join(run_folder, "matrix_peak_candidates.csv")
+    # results_df.to_csv(csv_path, index=False)
 
 
     # make subfolder fo ion images
@@ -341,75 +367,74 @@ def identify_matrix_peaks(matrix_zarr_path: str,
     m_width  = m_x.max() + 1
     m_height = m_y.max() + 1
 
+
+    n_to_plot = min(top_n_images, len(results_df))
+    top_col_idxs = [
+        np.argmin(np.abs(mz_axis - results_df.iloc[r]["mz"]))
+        for r in range(n_to_plot)
+    ]
+
     # load X_matrix only here, only for ion image generation
     # we only need the top N columns so extract those only
     X_matrix = m_adata.X
     if scipy.sparse.issparse(X_matrix):
         # extract only the columns we need — much cheaper than toarray() on full matrix
-        top_col_idxs = [
-            np.argmin(np.abs(mz_axis - results_df.iloc[rank]["mz"]))
-            for rank in range(top_n_images)
-        ]
+        # top_col_idxs = [
+        #     np.argmin(np.abs(mz_axis - results_df.iloc[rank]["mz"]))
+        #     for rank in range(top_n_images)
+        # ]
         X_matrix_subset = np.array(X_matrix[:, top_col_idxs].todense())  # (n_pixels, top_n)
     else:
-        top_col_idxs = [
-            np.argmin(np.abs(mz_axis - results_df.iloc[rank]["mz"]))
-            for rank in range(top_n_images)
-        ]
+        # top_col_idxs = [
+        #     np.argmin(np.abs(mz_axis - results_df.iloc[rank]["mz"]))
+        #     for rank in range(top_n_images)
+        # ]
         X_matrix_subset = X_matrix[:, top_col_idxs]  # (n_pixels, top_n)
 
-    # then in the loop, use the subset instead
-    for rank in range(top_n_images):
+    first_sample_avg = sample_avgs[0]
+    first_sample_name = os.path.basename(sample_zarr_paths[0]).replace(".zarr", "")
+
+    for rank in range(n_to_plot):
         row = results_df.iloc[rank]
         mz_val = row["mz"]
-
-        # build ion image using only the subset column
-        ion_image = np.zeros((m_height, m_width), dtype=np.float32)
-        for i, (xi, yi) in enumerate(zip(m_x, m_y)):
-            ion_image[yi, xi] = X_matrix_subset[i, rank]  # rank-th column of subset
-        
-        # rest of plotting code unchanged...
-
-
-    # loop over the top N ranked peaks and generate one image per peak
-    for rank in range(top_n_images):
-        row = results_df.iloc[rank]      # get the rank-th most matrix-like peak
-        mz_val = row["mz"]               # its m/z value
-        # find which column index in X_matrix corresponds to this m/z
         col_idx = np.argmin(np.abs(mz_axis - mz_val))
 
-        # build a 2D spatial image of this peak's intensity across matrix pixels
         ion_image = np.zeros((m_height, m_width), dtype=np.float32)
         for i, (xi, yi) in enumerate(zip(m_x, m_y)):
-            # place each pixel's intensity at its (x,y) position
-            ion_image[yi, xi] = X_matrix[i, col_idx]
+            ion_image[yi, xi] = X_matrix_subset[i, rank]
 
-        # plot: left panel = spatial ion image, right panel = bar chart
-        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+        fig, axes = plt.subplots(1, 3, figsize=(18, 4))
 
-        # left: hot colourmap ion image of this peak in the matrix region
         im = axes[0].imshow(ion_image, cmap="hot", interpolation="nearest")
         plt.colorbar(im, ax=axes[0], label="Intensity")
-        axes[0].set_title(f"Matrix ion image\nm/z {mz_val:.4f}")
+        axes[0].set_title(f"Matrix spatial ion image\nm/z {mz_val:.4f}")
         axes[0].axis("off")
 
-        # right: bar chart comparing average intensity in matrix vs samples
-        # visually shows how much higher this peak is in matrix vs tissue
-        axes[1].bar(["Matrix avg", "Sample avg"],
+        axes[1].bar(["Matrix avg", "All samples avg"],
                     [row["matrix_avg"], row["sample_avg"]],
                     color=["red", "steelblue"])
-        axes[1].set_title(f"Ratio: {row['ratio']:.1f}x\nRank {rank+1}")
-        axes[1].set_ylabel("Average intensity")
+        axes[1].set_title(f"All-sample comparison\nRatio: {row['ratio']:.1f}x")
+        axes[1].set_ylabel("Average intensity (raw counts)")
 
+        first_sample_intensity = first_sample_avg[col_idx]
+        axes[2].bar(["Matrix avg", f"{first_sample_name} avg"],
+                    [row["matrix_avg"], first_sample_intensity],
+                    color=["red", "darkorange"])
+        first_ratio = row["matrix_avg"] / (first_sample_intensity + 1e-9)
+        axes[2].set_title(f"Single sample\nRank {rank+1} | ratio: {first_ratio:.1f}x")
+        axes[2].set_ylabel("Average intensity (raw counts)")
+
+        plt.suptitle(f"m/z {mz_val:.4f}  —  rank {rank+1}  —  mean ratio {row['ratio']:.1f}x",
+                     fontsize=12, fontweight="bold")
         plt.tight_layout()
-        # save as e.g. "rank01_mz123.45.png"
         save_path = os.path.join(ion_image_folder,
                                   f"rank{rank+1:02d}_mz{mz_val:.2f}.png")
         plt.savefig(save_path, dpi=150, bbox_inches="tight")
         plt.close()
 
-    # return the full dataframe so the caller can use it for filtering
+    print(f"[identify_matrix_peaks] Ion images saved to {ion_image_folder}")
     return results_df
+
 
 
 def filter_matrix_peaks(peak_mz: np.ndarray,
@@ -1052,6 +1077,16 @@ def run_preprocessing(params, run_folder):
 
 
     if params.get("batch_mode", False):
+        # run omp on first sample to get candidat mz
+        ref_zarr = sample_zarr_paths[0]
+        ref_sd = reading_data(ref_zarr)
+        ref_data, ref_mz, ref_avg, _ = compute_average_spectrum(ref_sd)
+        ref_peak_mz, _ = peak_detection_omp(
+            ref_mz, ref_avg, run_folder,
+            non_zero_coefs=params["omp_coefs"]
+        )
+        print(f"[preprocessing] Reference OMP found {len(ref_peak_mz)} candidate peaks")
+
     # identify matrix peaks first if matrix zarr available
         matrix_peaks_df = None
         matrix_zarr_path = params.get("matrix_zarr_path")
@@ -1059,6 +1094,7 @@ def run_preprocessing(params, run_folder):
             matrix_peaks_df = identify_matrix_peaks(
                 matrix_zarr_path=matrix_zarr_path,
                 sample_zarr_paths=params["sample_zarr_paths"],
+                candidate_mz=candidate_mz,
                 run_folder=run_folder,
                 top_n_images=20
             )
