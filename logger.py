@@ -45,8 +45,9 @@ single_params= {
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
+    "matrix_ratio_threshold": None, 
 
-    "dimred": "spca", 
+    "dimred": "pca", 
     "n_components": 10,
 
     "clustering": "kmeans",
@@ -104,7 +105,7 @@ def run_pipeline(params: dict):
 
     # PREPROCESSING + DIM REDUCTION
     preprocessing_output = run_preprocessing(params, run_folder)
-    # preprocessing_output = {"n_features": "144"}
+    preprocessing_output = {"n_features": "144"}
     dimensionality_red_output = run_dimensionality_reduction(
         preprocessing_output["matrix_path"],
         # r"C:\Users\i6338212\data\msi_matrix_hippocampus_omp.npy",

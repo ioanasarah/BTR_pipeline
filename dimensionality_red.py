@@ -1401,7 +1401,11 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     
 
     spatial_map = reconstruct_spatial_map(labels, mask, original_shape, run_folder, params['run_id'])
-    plot_spatial_map(spatial_map, title=f"Spatial Map - {params['run_id']}", run_folder=run_folder, n_clusters=params["n_clusters"])
+    plot_spatial_map(
+        spatial_map, 
+        title=f"Spatial Map - {params['run_id']}", 
+        run_folder=run_folder, 
+        n_clusters=n_clusters_found)
 
     runtime = time.perf_counter() - start_time
 
