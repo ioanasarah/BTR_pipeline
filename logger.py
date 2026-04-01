@@ -13,7 +13,7 @@ from feature_selection import run_feature_selection
 
 # batch_mode = False
 # batch_mode = True
-slide_filter = "DHB Slide 4 50 um" # None to run all slides
+slide_filter = "DHB Slide 11 50 um" # None to run all slides
 #  DHB Slide 4 50 um
 
 
@@ -46,9 +46,9 @@ single_params= {
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
-    "matrix_ratio_threshold": 7.5, 
+    "matrix_ratio_threshold": 5.0, 
 
-    "dimred": "spca", 
+    "dimred": "pca", 
     "n_components": 10,
 
     "clustering": "kmeans",
