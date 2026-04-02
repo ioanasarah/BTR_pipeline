@@ -830,20 +830,24 @@ def peak_detection_omp(mz,
         avg_intensity,
         run_folder, 
         window_size=0.07, 
-        non_zero_coefs=700):
+        non_zero_coefs=700, 
+        candidate_intensity=None):
     print("detecting peaks using OMP...")
 
+
+
+    intensity_for_candidates = candidate_intensity if candidate_intensity is not None else avg_intensity
     # use mad to get candidate peaks for OMP
-    median = np.median(avg_intensity)
-    mad_noise = np.median(np.abs(avg_intensity - median))
+    median = np.median(intensity_for_candidates)
+    mad_noise = np.median(np.abs(intensity_for_candidates - median))
     # threshold = 2 * mad_noise # 2 is the snr 
     threshold = 1.5 * mad_noise
 
     candidate_peak_idxs = []
     window = 20 # index-based window for local max check
-    for i in range(window, len(avg_intensity) - window):
-        local_window = avg_intensity[i-window:i+window+1]
-        if avg_intensity[i] == np.max(local_window) and avg_intensity[i] > threshold:
+    for i in range(window, len(intensity_for_candidates) - window):
+        local_window = intensity_for_candidates[i-window:i+window+1]
+        if intensity_for_candidates[i] == np.max(local_window) and intensity_for_candidates[i] > threshold:
             candidate_peak_idxs.append(i)
     # this loop checks each m/z peak to see if its the highest intensity in a +/- 20 idx window AND if its above noise threshold
     # if it is, then it gets appended to the candidate peaks -- which will be used for omp
@@ -1089,8 +1093,9 @@ def preprocess_single_sample(zarr_path: str,
         avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
 
     if params["peak_method"] == "OMP":
-        peak_mz, _ = peak_detection_omp(mz, avg_intensity_for_omp, run_folder,
-                                         non_zero_coefs=params["omp_coefs"])
+        peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
+                                         non_zero_coefs=params["omp_coefs"],
+                                         candidate_intensity=avg_intensity_for_omp)
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
 
@@ -1187,7 +1192,7 @@ def run_preprocessing(params, run_folder):
             f"{run_folder}/filtered_mz_values.csv", index=False
         )
 
-        # reindexed_matrices = batch_correct_by_sample(reindexed_matrices)
+        reindexed_matrices = batch_correct_by_sample(reindexed_matrices)
 
         # build mosaic
         mosaic, sample_offset = build_slide_mosaic(
@@ -1198,9 +1203,15 @@ def run_preprocessing(params, run_folder):
             full_mz_axis=full_mz_axes[0],  # all share same raw mz axis
             gap=10
         )
+        if sample_offset > 0:
+            mosaic[:sample_offset, :, :] = 0.0   # exclude matrix block from clustering
+            print(f"[run_preprocessing] Matrix block excluded: rows 0–{sample_offset}")
 
         np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
         np.save(f"{run_folder}/matrix.npy", mosaic)
+
+        # np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
+        # np.save(f"{run_folder}/matrix.npy", mosaic)
 
         print(f"[preprocessing] Mosaic saved. Shape: {mosaic.shape}")
 

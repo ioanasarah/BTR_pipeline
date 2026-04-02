@@ -40,13 +40,14 @@ single_params= {
     "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
     "smoothing": None,
+
     # "smoothing": None,
     "filtering": None,
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
-    "matrix_ratio_threshold": 7, 
+    "matrix_ratio_threshold": 5.2, 
 
     "dimred": "pca", 
     "n_components": 10,

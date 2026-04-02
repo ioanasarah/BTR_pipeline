@@ -25,33 +25,33 @@ import scipy.sparse
 # Point this at any run folder — mosaic or single sample
 # run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_spca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_spca10_kmeans4_fixed"
 
-run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
-# run_folder = r"C:\Users\i6338212\data\results\hippocampus_PC\OMP_spca10_kmeans4_smoothing\hippocampus_OMP_spca10_kmeans4_smoothing"
+# run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
+run_folder = r"C:\Users\i6338212\data\results\hippocampus_PC\OMP_spca10_kmeans4_smoothing\hippocampus_OMP_spca10_kmeans4_smoothing"
 
 # For raw spectrum deep dive — list of zarr paths to load
 # For mosaic: list all 10 sample zarrs
 # For single sample: just one zarr path
-zarr_paths = [
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 pra.zarr",
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\10 pra.zarr",
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\21 pra.zarr",
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\28 pra.zarr",
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\49 pra.zarr",
+# zarr_paths = [
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 pra.zarr",
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\10 pra.zarr",
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\21 pra.zarr",
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\28 pra.zarr",
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\49 pra.zarr",
 
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\10 1hnr.zarr",
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\21 1hnr.zarr",
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\28 1hnr.zarr",
-    r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\49 1hnr.zarr"
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\10 1hnr.zarr",
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\21 1hnr.zarr",
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\28 1hnr.zarr",
+#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\49 1hnr.zarr"
     
    
-]
-# zarr_paths = [
-#     r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr"
 # ]
+zarr_paths = [
+    r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr"
+]
 
 # set to True if this is a mosaic run folder, False for single sample
-is_mosaic = True
+is_mosaic = False
 
 # output folder for plots — defaults to run_folder/cluster_spectra
 output_folder = os.path.join(run_folder, "cluster_analysis")
