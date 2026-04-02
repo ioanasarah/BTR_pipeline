@@ -600,7 +600,7 @@ def stack_matrix_spatially(sample_matrix_3d: np.ndarray,
 #     return reindexed, common_mz
 
 def harmonise_mz_axes(sample_matrices, sample_mz_lists, full_mz_axes,
-                       tol=0.05, min_presence=0.5):
+                       tol=0.05, min_presence=0.2):
     print("[harmonise] Building common m/z axis...")
     for i, mz_list in enumerate(sample_mz_lists):
         print(f"  Sample {i+1}: {len(mz_list)} peaks, range {mz_list.min():.2f}–{mz_list.max():.2f}")
@@ -665,6 +665,34 @@ def harmonise_mz_axes(sample_matrices, sample_mz_lists, full_mz_axes,
         sample_matrices[i] = None
 
     return reindexed, common_mz
+
+def batch_correct_by_sample(reindexed_matrices: list) -> list:
+    """
+    Z-score each sample independently before stacking into mosaic.
+    This removes inter-sample intensity differences so PCA finds
+    tissue structure rather than sample identity.
+    """
+    corrected = []
+    for i, matrix_3d in enumerate(reindexed_matrices):
+        h, w, n_mz = matrix_3d.shape
+        flat = matrix_3d.reshape(-1, n_mz)
+        
+        # only normalise non-zero pixels
+        nonzero = flat.sum(axis=1) > 0
+        flat_nz = flat[nonzero]
+        
+        # z-score per peak across this sample's pixels
+        mean = flat_nz.mean(axis=0)
+        std  = flat_nz.std(axis=0)
+        std  = np.where(std == 0, 1, std)  # avoid division by zero
+        flat_nz_scaled = (flat_nz - mean) / std
+        
+        flat[nonzero] = flat_nz_scaled
+        corrected.append(flat.reshape(h, w, n_mz))
+        print(f"[batch_correct] Sample {i+1} z-scored.")
+    
+    return corrected
+
 
 
 def build_slide_mosaic(sample_matrices: list, n_pra: int,
@@ -779,7 +807,24 @@ def peak_detection_mad(
     return peak_mz, peak_intensities
 
 
+def no_matrix_peaks(avg_intensity: np.ndarray,
+                    mz_axis: np.ndarray,
+                    matrix_peaks_df: pd.DataFrame,
+                    ratio_threshold: float,
+                    tol: float = 0.1):
 
+    flagged_mz = matrix_peaks_df[matrix_peaks_df["ratio"] >= ratio_threshold]["mz"].values
+    
+    suppressed = avg_intensity.copy()
+    for mz in flagged_mz:
+        window = np.abs(mz_axis - mz) <= tol
+        suppressed[window] = 0.0
+    
+    n_suppressed= np.sum(suppressed == 0) - np.sum(avg_intensity == 0)
+    print(f"[no_matrix_peaks] zeroed out {len(flagged_mz)} matrix peaks")
+    print(f"[no_matrix_peaks] {n_suppressed} bins suppressed")
+    return suppressed
+    
 
 def peak_detection_omp(mz, 
         avg_intensity,
@@ -791,7 +836,8 @@ def peak_detection_omp(mz,
     # use mad to get candidate peaks for OMP
     median = np.median(avg_intensity)
     mad_noise = np.median(np.abs(avg_intensity - median))
-    threshold = 2 * mad_noise # 2 is the snr 
+    # threshold = 2 * mad_noise # 2 is the snr 
+    threshold = 1.5 * mad_noise
 
     candidate_peak_idxs = []
     window = 20 # index-based window for local max check
@@ -1028,12 +1074,22 @@ def preprocess_single_sample(zarr_path: str,
     
     spatial_data = reading_data(zarr_path)
     data, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
+    if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
+        avg_intensity_for_omp = no_matrix_peaks(
+            avg_intensity,
+            mz, 
+            matrix_peaks_df,
+            ratio_threshold=params.get("matrix_ratio_threshold"),
+            tol = 0.1
+        )
+    else: 
+        avg_intensity_for_omp = avg_intensity
 
     if params.get("filtering") == "median":
         avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
 
     if params["peak_method"] == "OMP":
-        peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
+        peak_mz, _ = peak_detection_omp(mz, avg_intensity_for_omp, run_folder,
                                          non_zero_coefs=params["omp_coefs"])
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
@@ -1131,6 +1187,8 @@ def run_preprocessing(params, run_folder):
             f"{run_folder}/filtered_mz_values.csv", index=False
         )
 
+        # reindexed_matrices = batch_correct_by_sample(reindexed_matrices)
+
         # build mosaic
         mosaic, sample_offset = build_slide_mosaic(
             reindexed_matrices,
@@ -1150,3 +1208,39 @@ def run_preprocessing(params, run_folder):
             "matrix_path": f"{run_folder}/matrix.npy",
             "n_features":  mosaic.shape[-1]
         }
+    else:
+        # ── SINGLE SAMPLE MODE ────────────────────────────────────────────
+        print("[preprocessing] Running in single sample mode...")
+        spatial_data = reading_data(params["zarr_path"])
+        AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
+
+        if params["filtering"] == "median":
+            filtered_avg_intensity = median_filter_spectrum(
+                filtered_avg_intensity, kernel_size=5
+            )
+
+        if params["peak_method"] == "OMP":
+            peak_mz, _ = peak_detection_omp(
+                mz, filtered_avg_intensity, run_folder,
+                non_zero_coefs=params["omp_coefs"]
+            )
+        else:
+            peak_mz, _ = peak_detection_mad(
+                mz, filtered_avg_intensity, window_size=20, snr=2
+            )
+
+        bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
+        pooled_spectra, pooled_mz = pooling(AnnData.X, mz, bins)
+        _, filtered_spectra, filtered_mz = filtering(
+            pooled_spectra, pooled_mz, run_folder
+        )
+        normalized_matrix = tic_normalization(filtered_spectra, run_folder)
+        matrix = reshaping_to_3d_matrix(AnnData, normalized_matrix)
+
+        np.save(f"{run_folder}/matrix.npy", matrix)
+
+        return {
+            "matrix_path": f"{run_folder}/matrix.npy",
+            "n_features":  matrix.shape[-1]
+        }
+

@@ -198,10 +198,10 @@ def run_random_forest(
     ax.barh(
         top_df["mz"].astype(str),
         top_df["importance"],
-        xerr=top_df["importance_std"],
+        # xerr=top_df["importance_std"],
         align="center",
         color="steelblue",
-        ecolor="gray",
+        # ecolor="gray",
         capsize=3,
     )
     ax.invert_yaxis()
@@ -288,9 +288,9 @@ if __name__ == "__main__":
     results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
     preprocessing_run_name = "liver_PC"
     # reduction_name = "xenium_OMP_pca_umap10_k5_smoothing" # good segm but bg weird
-    reduction_name = "OMP_pca10_kmeans4_select_matrix" # good segm 
+    reduction_name = "OMP_pca10_kmeans4_remove_matrix" # good segm 
     # reduction_name = "xenium_OMP_pca10_k4" # bad segm
-    run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4_select_matrix\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
+    run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
     mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
 
 
@@ -306,43 +306,43 @@ if __name__ == "__main__":
     # reject, pvals_corrected = perform_fdr_correction(
     #     p_values=p_values
     # )
-    from scipy.stats import ttest_ind
+    # from scipy.stats import ttest_ind
 
-    cluster_a = 1
-    cluster_b = 2
+    # cluster_a = 1
+    # cluster_b = 2
 
-    cluster0 = matrix_scaled[labels == cluster_a]
-    cluster1 = matrix_scaled[labels == cluster_b]
+    # cluster0 = matrix_scaled[labels == cluster_a]
+    # cluster1 = matrix_scaled[labels == cluster_b]
 
-    p_values = np.array([
-        ttest_ind(cluster0[:, i], cluster1[:, i], equal_var=False).pvalue
-        for i in range(matrix_scaled.shape[1])
-    ])
+    # p_values = np.array([
+    #     ttest_ind(cluster0[:, i], cluster1[:, i], equal_var=False).pvalue
+    #     for i in range(matrix_scaled.shape[1])
+    # ])
 
-    reject, pvals_corrected = perform_fdr_correction(p_values)
-    anova_results_df = pd.DataFrame({
-        "mz": mz_values,
-        "p_value": p_values,
-        "adjusted_p_value": pvals_corrected,
-        "significant_after_fdr": reject
-    })
+    # reject, pvals_corrected = perform_fdr_correction(p_values)
+    # anova_results_df = pd.DataFrame({
+    #     "mz": mz_values,
+    #     "p_value": p_values,
+    #     "adjusted_p_value": pvals_corrected,
+    #     "significant_after_fdr": reject
+    # # })
 
-    volcano_plot_plotly(
-        matrix=matrix_scaled,
-        labels=labels,
-        p_values=pvals_corrected,   # ✅ use corrected p-values
-        run_folder=run_folder,
-        mz_values=mz_values,
-        name_of_run="cluster1_vs_cluster2",
-        cluster_a=cluster_a,
-        cluster_b=cluster_b
-    )
+    # volcano_plot_plotly(
+    #     matrix=matrix_scaled,
+    #     labels=labels,
+    #     p_values=pvals_corrected,   # ✅ use corrected p-values
+    #     run_folder=run_folder,
+    #     mz_values=mz_values,
+    #     name_of_run="cluster1_vs_cluster2",
+    #     cluster_a=cluster_a,
+    #     cluster_b=cluster_b
+    # )
             
-#     rf_dict = run_random_forest(matrix_scaled, 
-#                                 labels,
-#                                 mz_values, 
-#                                 run_folder, 
-#                                 reduction_name)
+    rf_dict = run_random_forest(matrix_scaled, 
+                                labels,
+                                mz_values, 
+                                run_folder, 
+                                reduction_name)
     
 #     mask = np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca10_k4_3x3_smoothing\mask.npy")
 #     for cluster_id in labels.unique():
@@ -354,21 +354,21 @@ if __name__ == "__main__":
 #         print(f"Cluster {cluster_id} top enriched m/z: {mz_values[top_idx]}")
 
 
-#     mask = np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca10_k4_3x3_smoothing\mask.npy")
+    mask = np.load(f"{run_folder}\mask.npy")
 #     mask = np.squeeze(np.asarray(mask))
 #     # print(mask.shape)
 #     # print(mask.ndim)
 
-#     original_shape = tuple(np.load(f"{run_folder}\\original_shape.npy"))
+    original_shape = tuple(np.load(f"{run_folder}\\original_shape.npy"))
 
     
-#     reconstruct_and_plot_ion_images(matrix_scaled=matrix_scaled, 
-#                                     mask=mask, 
-#                                     original_shape=original_shape,
-#                                     mz_values=mz_values,
-#                                     feature = 534.22335607,
-#                                     rf_dict=rf_dict,
-#                                     run_folder=run_folder)
+    reconstruct_and_plot_ion_images(matrix_scaled=matrix_scaled, 
+                                    mask=mask, 
+                                    original_shape=original_shape,
+                                    mz_values=mz_values,
+                                    feature = 438.833,
+                                    rf_dict=rf_dict,
+                                    run_folder=run_folder)
   
 
 #     consensus_df =  combine_anova_rf(

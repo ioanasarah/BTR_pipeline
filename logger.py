@@ -36,8 +36,8 @@ single_params= {
     "computer": "pc",
     "experiment": "liver_PC",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
-    # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
+    # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
+    "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
     "smoothing": None,
     # "smoothing": None,
@@ -46,13 +46,13 @@ single_params= {
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
-    "matrix_ratio_threshold": 5.0, 
+    "matrix_ratio_threshold": 7, 
 
     "dimred": "pca", 
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters": 4
+    "n_clusters":4
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
