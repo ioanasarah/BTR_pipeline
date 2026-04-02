@@ -6,6 +6,7 @@ import pandas as pd
 import time
 import numpy as np
 from preprocessing import run_preprocessing
+from old_prep_code import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
@@ -47,13 +48,13 @@ single_params= {
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
-    "matrix_ratio_threshold": 5.2, 
+    "matrix_ratio_threshold": 3, 
 
     "dimred": "pca", 
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters":9
+    "n_clusters":5
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }

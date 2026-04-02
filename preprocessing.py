@@ -435,6 +435,24 @@ def identify_matrix_peaks(matrix_zarr_path: str,
     print(f"[identify_matrix_peaks] Ion images saved to {ion_image_folder}")
     return results_df
 
+def filter_nonphysical_peaks(peak_mz: np.ndarray, mz_cutoff: float = 600.0,
+                              tol: float = 0.1) -> np.ndarray:
+    """
+    Remove peaks whose m/z fractional part is suspiciously non-integer.
+    Real MALDI ions have fractional m/z parts near 0 (singly charged).
+    Doubly-charged / ghost OMP peaks cluster around 0.3-0.9.
+    """
+    frac = peak_mz - np.floor(peak_mz)
+    is_low_mz = peak_mz < mz_cutoff
+    is_ghost = (frac >= tol) & (frac <= (1.0 - tol))
+
+    remove = is_low_mz & is_ghost
+    keep = ~remove
+    # # keep peaks where fractional part is within tol of 0 or 1
+    # keep = (frac < tol) | (frac > (1.0 - tol))
+    # n_removed = (~keep).sum()
+    print(f"[filter_nonphysical] Removed {remove.sum()} ghost peaks (m/z < {mz_cutoff})")
+    return peak_mz[keep]
 
 
 def filter_matrix_peaks(peak_mz: np.ndarray,
@@ -1084,7 +1102,7 @@ def preprocess_single_sample(zarr_path: str,
             mz, 
             matrix_peaks_df,
             ratio_threshold=params.get("matrix_ratio_threshold"),
-            tol = 0.1
+            tol = 0.2
         )
     else: 
         avg_intensity_for_omp = avg_intensity
@@ -1096,15 +1114,18 @@ def preprocess_single_sample(zarr_path: str,
         peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
                                          non_zero_coefs=params["omp_coefs"],
                                          candidate_intensity=avg_intensity_for_omp)
+        
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
+
+    peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
 
     if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
         peak_mz, removed = filter_matrix_peaks(
             peak_mz,
             matrix_peaks_df,
             ratio_threshold=params["matrix_ratio_threshold"],
-            tol=0.1
+            tol=0.2
         )
 
         print(f"[preprocess_single_sample] peaks before matrix filter: {len(peak_mz) + len(removed)}")

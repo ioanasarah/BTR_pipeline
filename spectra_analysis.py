@@ -1,12 +1,12 @@
 """
-cluster_spectra_analysis.py
+spectra_analysis.py
 ----------------------------
 Standalone script for manual evaluation of cluster average spectra.
 Run after the pipeline has completed for a given run folder.
 
 Usage:
     Set the CONFIG section at the bottom and run:
-    poetry run python cluster_spectra_analysis.py
+    poetry run python spectra_analysis.py
 """
 
 import os
