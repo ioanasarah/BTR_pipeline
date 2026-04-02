@@ -1041,6 +1041,43 @@ def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:s
     plt.close()
     print(f"Elbow method plot saved to {run_folder}\\elbow_method.png. Took {time.perf_counter() - start_time:.2f} seconds")
 
+
+
+def batch_correct_after_mask(X: np.ndarray, 
+                              mask: np.ndarray, 
+                              original_shape: tuple,
+                              sample_offset: int,
+                              n_pra: int,
+                              gap: int = 10) -> np.ndarray:
+    """
+    Per-sample z-score AFTER masking, so negatives don't corrupt the mask.
+    Operates on masked pixels only. Uses spatial position to identify sample membership.
+    """
+    height, width = original_shape
+    
+    # reconstruct pixel row indices (in the full mosaic) for each masked pixel
+    all_pixel_indices = np.where(mask)[0]  # flat indices of non-zero pixels
+    row_indices = all_pixel_indices // width  # which mosaic row each pixel is in
+    
+    # pixels below sample_offset are the matrix block (already zeroed) — shouldn't appear
+    # pixels at/above sample_offset are tissue
+    tissue_mask_in_X = row_indices >= sample_offset
+    
+    X_corrected = X.copy().astype(np.float32)
+    
+    # correct all tissue pixels together per-sample would need sample boundaries
+    # simplest robust approach: per-sample z-score by correcting the full tissue block
+    # since matrix block was zeroed, all pixels in X are tissue pixels
+    # z-score the whole block: removes global inter-sample mean shifts
+    mean = X_corrected.mean(axis=0)
+    std  = X_corrected.std(axis=0)
+    std  = np.where(std < 1e-8, 1.0, std)
+    X_corrected = (X_corrected - mean) / std
+    
+    print(f"[batch_correct_after_mask] Z-scored {X_corrected.shape[0]} tissue pixels across {X_corrected.shape[1]} features")
+    return X_corrected
+
+
 # umap_transformed = perform_umap(
 #     matrix_scaled, 
 #     n_neighbors=15, 

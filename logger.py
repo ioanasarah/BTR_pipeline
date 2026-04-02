@@ -53,7 +53,7 @@ single_params= {
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters":4
+    "n_clusters":9
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }

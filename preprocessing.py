@@ -668,30 +668,30 @@ def harmonise_mz_axes(sample_matrices, sample_mz_lists, full_mz_axes,
 
 def batch_correct_by_sample(reindexed_matrices: list) -> list:
     """
-    Z-score each sample independently before stacking into mosaic.
-    This removes inter-sample intensity differences so PCA finds
-    tissue structure rather than sample identity.
+    Remove inter-sample intensity offsets using per-sample median-centering.
+    Clips to 0 to preserve non-negativity (mask compatibility).
     """
     corrected = []
     for i, matrix_3d in enumerate(reindexed_matrices):
         h, w, n_mz = matrix_3d.shape
         flat = matrix_3d.reshape(-1, n_mz)
         
-        # only normalise non-zero pixels
         nonzero = flat.sum(axis=1) > 0
         flat_nz = flat[nonzero]
         
-        # z-score per peak across this sample's pixels
-        mean = flat_nz.mean(axis=0)
-        std  = flat_nz.std(axis=0)
-        std  = np.where(std == 0, 1, std)  # avoid division by zero
-        flat_nz_scaled = (flat_nz - mean) / std
+        # subtract per-feature median (robust to outliers, preserves relative differences)
+        median = np.median(flat_nz, axis=0)
+        flat_nz = flat_nz - median
         
-        flat[nonzero] = flat_nz_scaled
+        # clip negatives to 0 — keeps mask valid, removes offset only
+        flat_nz = np.clip(flat_nz, 0, None)
+        
+        flat[nonzero] = flat_nz
         corrected.append(flat.reshape(h, w, n_mz))
-        print(f"[batch_correct] Sample {i+1} z-scored.")
+        print(f"[batch_correct] Sample {i+1} median-centred and clipped.")
     
     return corrected
+
 
 
 
