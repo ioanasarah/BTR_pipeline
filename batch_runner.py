@@ -40,6 +40,9 @@ def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) 
     """
     all_params = []
 
+    if not os.path.isdir(batch_root):
+        raise FileNotFoundError(f"Batch root not found: {batch_root}")
+
     slide_folders = [
         f for f in os.listdir(batch_root)
         if os.path.isdir(os.path.join(batch_root, f))
@@ -51,10 +54,6 @@ def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) 
         if not slide_folders:
             raise ValueError(f"No slide folders matched filter: '{slide_filter}'")
         print(f"[batch_runner] Slide filter '{slide_filter}' matched: {slide_folders}")
-
-
-    if not os.path.isdir(batch_root):
-        raise FileNotFoundError(f"Batch root not found: {batch_root}")
 
     # slide_folders = [
     #     f for f in os.listdir(batch_root)
@@ -150,4 +149,4 @@ if __name__ == "__main__":
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
     )
-    print(all_params[0]["matrix_zarr_paths"])
+    print(all_params[0]["matrix_zarr_path"])

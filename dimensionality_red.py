@@ -157,6 +157,7 @@ def smooth_and_scale_matrix(X: np.array,
 
 def subset_matrix(matrix: np.ndarray, subset_size: int = 50_000, seed: int = 42) -> np.ndarray:
     rng = np.random.default_rng(seed) # using seed to get the same random subset each time for reproducibility
+    subset_size = min(subset_size, matrix.shape[0])
     idx = rng.choice(matrix.shape[0], size=subset_size, replace=False)
     return matrix[idx], idx  
 
@@ -186,6 +187,7 @@ def perform_umap(X: np.ndarray,
     Returns:
         UMAP-transformed data
     """
+    _t = time.perf_counter()
     print("Performing UMAP dimensionality reduction...")
     if supervised and y is not None:
         reducer = umap.UMAP(
@@ -211,7 +213,7 @@ def perform_umap(X: np.ndarray,
         )
         umap_transformed = reducer.fit_transform(X)
     
-    print("done with umap! took {:.2f} seconds".format(time.perf_counter() - start_time))
+    print("done with umap! took {:.2f} seconds".format(time.perf_counter() - _t))
     return umap_transformed
     
 def save_umap_results(umap_transformed: np.ndarray,
@@ -227,6 +229,7 @@ def save_umap_results(umap_transformed: np.ndarray,
     print(f"UMAP saved to {save_path}")
 
 def perform_pca(X: np.ndarray, n_components: int) -> np.ndarray:
+    _t = time.perf_counter()
     print("Performing PCA dimensionality reduction...")
     pca = PCA(n_components=n_components, 
               svd_solver='randomized', 
@@ -234,7 +237,7 @@ def perform_pca(X: np.ndarray, n_components: int) -> np.ndarray:
     pca_transformed = pca.fit_transform(X)
     loadings = pca.components_
     explained = pca.explained_variance_ratio_
-    print("done with PCA! took {:.2f} seconds".format(time.perf_counter() - start_time))
+    print("done with PCA! took {:.2f} seconds".format(time.perf_counter() - _t))
     return pca_transformed, loadings, explained
 
 
@@ -251,8 +254,9 @@ def save_pca_results(pca_transformed: np.array,
     print(f"PCA saved to {save_path}")
 
 def save_preprocessed_matrix(matrix: np.ndarray, save_path: str) -> None:
+    _t = time.perf_counter()
     np.save(save_path, matrix)
-    print(f"Preprocessed matrix saved to {save_path}. Took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Preprocessed matrix saved to {save_path}. Took {time.perf_counter() - _t:.2f} seconds")
 
 
 def plot_umap_plotly(umap_transformed: np.ndarray, 
@@ -282,6 +286,7 @@ def plot_umap_plotly(umap_transformed: np.ndarray,
     Returns:
         Plotly figure object
     """
+    _t = time.perf_counter()
     print("Creating interactive UMAP visualization with Plotly...")
 
     # Create a dataframe for Plotly
@@ -341,8 +346,8 @@ def plot_umap_plotly(umap_transformed: np.ndarray,
     # Save as HTML if requested
     if save_html:
         fig.write_html(save_html)
-        print(f"Interactive plot saved to {save_html}. Took {time.perf_counter() - start_time:.2f} seconds")
-    
+        print(f"Interactive plot saved to {save_html}. Took {time.perf_counter() - _t:.2f} seconds")
+
     return fig
 
 def plot_pca_plotly(pca_transformed: np.ndarray, 
@@ -372,6 +377,7 @@ def plot_pca_plotly(pca_transformed: np.ndarray,
     Returns:
         Plotly figure object
     """
+    _t = time.perf_counter()
     print("Creating interactive PCA visualization with Plotly...")
 
     # Create a dataframe for Plotly
@@ -431,7 +437,7 @@ def plot_pca_plotly(pca_transformed: np.ndarray,
     # Save as HTML if requested
     if save_html:
         fig.write_html(save_html)
-        print(f"Interactive plot saved to {save_html}. Took {time.perf_counter() - start_time:.2f} seconds")
+        print(f"Interactive plot saved to {save_html}. Took {time.perf_counter() - _t:.2f} seconds")
 
     return fig
 
@@ -769,15 +775,18 @@ def perform_mnf(X,
                 n_components
                 ):
     
+    if noise is None:
+        raise ValueError("perform_mnf requires a noise matrix (input must be 3D)")
     print("Performing MNF...")
-    # noise already estimated from loading function 
-    
+    # noise already estimated from loading function
+
     # compute covariance matrices
     A = np.cov(X, rowvar=False) # A is covariance of data 
     B = np.cov(noise, rowvar=False) / 2 # B is covariance of noise 
     # cov of differences = 2 * noise cov, so divide by 2
 
-    # solve generalised eigenproblem 
+    # solve generalised eigenproblem
+    B += np.eye(B.shape[0]) * 1e-6
     eigvals, eigvecs = eigh(A, B)
 
     # sort components so we get highest SNR first 
@@ -885,12 +894,11 @@ def spectral_clustering(matrix: np.ndarray,
     
         # (random_state = None, n_components = 20, n_init = 10, gamma = 1, affinity = 
 # ‘rbf’, n_neighbors = 10, eigen_tol = 0.0, assign_labels = ‘kmeans’, degree = 3)
-    idx = np.random.choice(len(matrix), size=10000, replace=False)
+    idx = np.random.choice(len(matrix), size=min(10000, len(matrix)), replace=False)
     sample = matrix[idx]
 
     sc = SpectralClustering(n_clusters=n_clusters, affinity='nearest_neighbors', n_neighbors=10, assign_labels='kmeans')
     sample_labels = sc.fit_predict(sample)  # fit on a random sample to find cluster centers
-    sc.fit(sample)
 
     centroids = np.array([sample[sample_labels == k].mean(axis=0) for k in range(n_clusters)])
     # Use KMeans to assign labels to all remaining points based on spectral cluster centers
@@ -1287,6 +1295,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
 )
 
     # dimensionality reduction
+    explained = None
     if params["dimred"] == "pca":
         embedding, loadings, explained = perform_pca(
             matrix_scaled,
@@ -1323,7 +1332,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             embedding,
             n_neighbors=params.get("n_neighbors", 15),
             min_dist=params.get("min_dist", 0.1),
-            n_components=params.get("n_components", 2)
+            n_components=params.get("umap_n_components", 2)
         )
     elif params["dimred"] == "full_spatial_pca":
         # coords = get_pixel_coords(mask, original_shape)
@@ -1350,7 +1359,6 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
             mask=mask,
             n_components=params.get("n_components", 10)
         )
-        embedding_small = embedding[:, 2:]
     else:
         raise ValueError(f"Unknown dimred method: {params['dimred']}")
 
@@ -1370,7 +1378,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         raise ValueError(f"Unknown clustering method")
 
 
-    n_clusters_found=len(set(labels)) - (1 if -1 in labels else 0)
+    n_clusters_found=len(set(labels)) - (1 if -1 in set(labels) else 0)
     # save results and plot
     if params["dimred"] == "pca":
         save_pca_results(embedding, labels, f"{run_folder}\\pca_results.csv")
@@ -1459,6 +1467,6 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         "run_name": params["run_id"],
         "runtime": runtime,
         "n_samples": len(labels),
-        "n_clusters_found": len(set(labels)) - (1 if -1 in labels else 0)
+        "n_clusters_found": len(set(labels)) - (1 if -1 in set(labels) else 0)
     }
 

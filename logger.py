@@ -6,7 +6,6 @@ import pandas as pd
 import time
 import numpy as np
 from preprocessing import run_preprocessing
-from old_prep_code import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
@@ -165,4 +164,5 @@ if __name__ == "__main__":
         run_pipeline(single_params)
 
 
-print("Full run completed and logged.")
+if __name__ == "__main__":
+    print("Full run completed and logged.")

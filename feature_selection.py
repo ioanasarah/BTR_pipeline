@@ -15,9 +15,10 @@ print("Loaded packages for feature selection")
 
 def load_things(raw_matrix_file_path: str,
                 file_path: str):
+    _t = time.perf_counter()
     # load matrix
     matrix_scaled = np.load(raw_matrix_file_path)
-    print(f"Matrix loaded in {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Matrix loaded in {time.perf_counter() - _t:.2f} seconds")
 
     # load pca 
 
@@ -42,6 +43,7 @@ def perform_anova_test(matrix: np.ndarray, labels: pd.Series) -> pd.DataFrame:
         f_stat, p_value = f_oneway(*groups)
         p_values_per_feature.append(p_value)
     p_values = np.array(p_values_per_feature)
+    p_values = np.where(np.isnan(p_values), 1.0, p_values)
 
     # how many features are stat significant at alpha = 0.05 before FDR correction
     print(f"Number of features with p-value < 0.05 before FDR correction: {np.sum(p_values < 0.05)}")
@@ -455,15 +457,18 @@ def run_feature_selection(
     )
 
     # PLOT ION IMAGES
-    reconstruct_and_plot_ion_images(
-        matrix_scaled=matrix,
-        mask=mask,
-        original_shape=original_shape,
-        mz_values=mz_values,
-        feature=consensus_df["mz"].iloc[0],
-        rf_dict=rf_dict,
-        run_folder=run_folder,
-    )
+    if len(consensus_df) > 0:
+        reconstruct_and_plot_ion_images(
+            matrix_scaled=matrix,
+            mask=mask,
+            original_shape=original_shape,
+            mz_values=mz_values,
+            feature=consensus_df["mz"].iloc[0],
+            rf_dict=rf_dict,
+            run_folder=run_folder,
+        )
+    else:
+        print("No consensus features found -- skipping ion image reconstruction.")
 
     return {
         "anova_results_df": anova_results_df,

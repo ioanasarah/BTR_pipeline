@@ -42,7 +42,7 @@ def compute_average_spectrum(
     
     print("computing average spectrum...")
     # data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
-    data = spatial_data["msi_dataset_z0"]
+    data = list(spatial_data.tables.values())[0]
     mz = data.var["mz"].values
     avg_intensity = data.uns["average_spectrum"] # unstructured annotation within anndata object
     # average intensity at each m/z across all pixels
@@ -206,8 +206,8 @@ def linear_recalibration(data, reference_mz, reference_intensity, run_folder,
 
 # uncomment this for normal, all pixel analysis 
     for i_idx, i in enumerate(nonzero_pixels): # iterate through pixels
-        if i % 100 == 0:
-            print(f"Processed {i}/{n_pixels} pixels")
+        if i_idx % 100 == 0:
+            print(f"Processed {i_idx}/{n_pixels} pixels")
 
         pixel = np.array(X[i].todense()).flatten() if issparse(X) else X[i] # get each pixel spectrum as a dense array
         # print(pixel.max())
@@ -954,13 +954,11 @@ def filtering(
 ):
     print("filtering spectra...")
     presence = (pooled_spectra > 0).sum(axis=0) # count how many pixels each peak appears
-    threshold = 0.00005 * pooled_spectra.shape[0] # set threshold as 0.005% of total number of spectra
+    threshold = 0.01 * pooled_spectra.shape[0] # set threshold as 1% of total number of spectra
     # threshold = 50
 
-    valid_peaks = np.array(presence).flatten() > threshold # keep peaks that are present in more than 0.5% of spectra
+    valid_peaks = np.array(presence).flatten() > threshold # keep peaks that are present in more than 1% of spectra
     filtered_spectra = pooled_spectra[:, valid_peaks] # filter the spectra to keep only valid peaks
-
-    filtered_spectra = pooled_spectra[:, valid_peaks]
     filtered_mz = pooled_mz[valid_peaks]
     pd.DataFrame({"mz": filtered_mz}).to_csv(
         f"{run_folder}\\filtered_mz_values.csv",
@@ -980,12 +978,14 @@ def tic_normalization(filtered_spectra: np.ndarray, run_folder:str,
     print("performing TIC normalization...")
     tic = filtered_spectra.sum(axis=1) # total ion current for each spectrum / for each pixel
     tic = np.where(tic == 0, 1, tic) # avoid division by zero
-    normalised_matrix = (filtered_spectra / tic) * target # divide each spectrum by its TIC to normalize for differences in total intensity between spectra
+    normalised_matrix = (filtered_spectra / tic[:, np.newaxis]) * target
     
     # TIC should be aprox 1.0 for all non-zero pixels
     non_zero_tics = normalised_matrix.sum(axis=1)
     non_zero_tics = non_zero_tics[non_zero_tics > 0]
-    np.save(f"{run_folder}\\normalised_matrix.npy", normalised_matrix)
+    if scipy.sparse.issparse(normalised_matrix):
+        normalised_matrix = normalised_matrix.toarray()
+    np.save(os.path.join(run_folder, "normalised_matrix.npy"), normalised_matrix)
     print(f"Post-normalisation TIC — mean: {non_zero_tics.mean():.4f}, std: {non_zero_tics.std():.6f}")
     print(f"TIC normalization complete in {time.perf_counter() - start_time:.2f} seconds")
     
@@ -999,15 +999,19 @@ def reshaping_to_3d_matrix(
     x_coords = data.obs["x"].values
     y_coords = data.obs["y"].values
 
-    width = len(np.unique(x_coords))
-    height = len(np.unique(y_coords))
+    x_int = x_coords.astype(int)
+    y_int = y_coords.astype(int)
+    width = int(x_int.max()) + 1
+    height = int(y_int.max()) + 1
     print(f"Reshaping to 3D matrix with dimensions: ({height}, {width}, {filtered_spectra.shape[1]})")
 
     if issparse(filtered_spectra):
         spectra_array = filtered_spectra.toarray()
     else:
         spectra_array = filtered_spectra
-    matrix = spectra_array.reshape(height, width, -1)
+    matrix = np.zeros((height, width, spectra_array.shape[1]), dtype=spectra_array.dtype)
+    for i, (xi, yi) in enumerate(zip(x_int, y_int)):
+        matrix[yi, xi, :] = spectra_array[i]
     # matrix = filtered_spectra.reshape(height, width, -1)
     print(f"Reshaped matrix shape: {matrix.shape} in {time.perf_counter() - start_time:.2f} seconds")
     
@@ -1096,24 +1100,12 @@ def preprocess_single_sample(zarr_path: str,
     
     spatial_data = reading_data(zarr_path)
     data, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
-    if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
-        avg_intensity_for_omp = no_matrix_peaks(
-            avg_intensity,
-            mz, 
-            matrix_peaks_df,
-            ratio_threshold=params.get("matrix_ratio_threshold"),
-            tol = 0.2
-        )
-    else: 
-        avg_intensity_for_omp = avg_intensity
-
     if params.get("filtering") == "median":
         avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
 
     if params["peak_method"] == "OMP":
         peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
-                                         non_zero_coefs=params["omp_coefs"],
-                                         candidate_intensity=avg_intensity_for_omp)
+                                         non_zero_coefs=params["omp_coefs"])
         
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
@@ -1212,8 +1204,6 @@ def run_preprocessing(params, run_folder):
         pd.DataFrame({"mz": common_mz}).to_csv(
             f"{run_folder}/filtered_mz_values.csv", index=False
         )
-
-        reindexed_matrices = batch_correct_by_sample(reindexed_matrices)
 
         # build mosaic
         mosaic, sample_offset = build_slide_mosaic(

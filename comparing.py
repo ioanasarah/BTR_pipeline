@@ -9,7 +9,8 @@ import umap
 import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
-import sklearn 
+import seaborn as sns
+import sklearn
 from sklearn.cluster import KMeans
 # import umap.plot
 
@@ -58,10 +59,6 @@ def load_and_preprocess_msi(
     print("Scaling complete.")
     
     return X_scaled, mask
-
-file_path = r"C:\Ioana\_uni\btr\msi_matrix.npy"
-matrix_scaled, mask = load_and_preprocess_msi(file_path=file_path, remove_zero_pixels=True)
-
 
 def perform_umap(X: np.ndarray, 
                 y: Optional[pd.Series] = None,
@@ -270,61 +267,65 @@ def kmeans_clustering(matrix: np.ndarray,
     print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
     return pd.Series(labels)
 
-umap_transformed = perform_umap(
-    matrix_scaled, 
-    n_neighbors=15, 
-    min_dist=0.1, 
-    n_components=2, 
-    metric='euclidean', #can change to cosine to be faster
-    random_state=42, 
-    supervised=False)
+if __name__ == "__main__":
+    file_path = r"C:\Ioana\_uni\btr\msi_matrix.npy"
+    matrix_scaled, mask = load_and_preprocess_msi(file_path=file_path, remove_zero_pixels=True)
 
-# umap.plot.points(umap, labels=None, theme='viridis')
+    umap_transformed = perform_umap(
+        matrix_scaled,
+        n_neighbors=15,
+        min_dist=0.1,
+        n_components=2,
+        metric='euclidean', #can change to cosine to be faster
+        random_state=42,
+        supervised=False)
 
-# figure = plot_umap_matplotlib(umap, labels=None, title="UMAP 2D Visualization of MSI Data", save_path="umap_msi.png")
+    # umap.plot.points(umap, labels=None, theme='viridis')
 
-
-# labels = pd.Series(["All"] * umap_tranformed.shape[0])
-
-# fig = plot_umap_plotly(
-#     umap_tranformed, 
-#     labels=labels,
-#     title="Interactive UMAP Visualization", 
-#     save_html = "umap_msi_spectral.html")
+    # figure = plot_umap_matplotlib(umap, labels=None, title="UMAP 2D Visualization of MSI Data", save_path="umap_msi.png")
 
 
-# print(f"UMAP visualisation saved to umap_msi_spectral.html")
+    # labels = pd.Series(["All"] * umap_tranformed.shape[0])
 
-# elbow method to find optimal k for kmeans clustering on umap results
-inertias = []
-k_range = range(2, 20)
+    # fig = plot_umap_plotly(
+    #     umap_tranformed,
+    #     labels=labels,
+    #     title="Interactive UMAP Visualization",
+    #     save_html = "umap_msi_spectral.html")
 
-for k in k_range:
-    km = KMeans(n_clusters=k, random_state=42, n_init=10)
-    km.fit(umap_transformed)
-    inertias.append(km.inertia_)
 
-plt.plot(k_range, inertias, 'bo-')
-plt.xlabel("Number of clusters (k)")
-plt.ylabel("Inertia")
-plt.title("Elbow Method for Optimal k")
-plt.show()
+    # print(f"UMAP visualisation saved to umap_msi_spectral.html")
 
-kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=10)
-labels = kmeans_labels
+    # elbow method to find optimal k for kmeans clustering on umap results
+    inertias = []
+    k_range = range(2, 20)
 
-fig = plot_umap_plotly(
-    umap_transformed, 
-    labels=labels,
-    title="Interactive UMAP Visualization with KMeans Clusters", 
-    save_html = "umap_msi_kmeans_spectral.html")
+    for k in k_range:
+        km = KMeans(n_clusters=k, random_state=42, n_init=10)
+        km.fit(umap_transformed)
+        inertias.append(km.inertia_)
 
-print(f"UMAP visualisation with KMeans clusters saved to umap_msi_kmeans_spectral.html")
-# print time it took to finish this
-print(f"Total time for dimensionality reduction and visualization: {time.perf_counter():.2f} seconds")
+    plt.plot(k_range, inertias, 'bo-')
+    plt.xlabel("Number of clusters (k)")
+    plt.ylabel("Inertia")
+    plt.title("Elbow Method for Optimal k")
+    plt.show()
 
-# *import umap.plot*
+    kmeans_labels = kmeans_clustering(matrix=umap_transformed, n_clusters=10)
+    labels = kmeans_labels
 
-# *reducer = umap.UMAP().fit(data)*
-# *umap.plot.connectivity(reducer)*
-# [image: image.png]
+    fig = plot_umap_plotly(
+        umap_transformed,
+        labels=labels,
+        title="Interactive UMAP Visualization with KMeans Clusters",
+        save_html = "umap_msi_kmeans_spectral.html")
+
+    print(f"UMAP visualisation with KMeans clusters saved to umap_msi_kmeans_spectral.html")
+    # print time it took to finish this
+    print(f"Total time for dimensionality reduction and visualization: {time.perf_counter():.2f} seconds")
+
+    # *import umap.plot*
+
+    # *reducer = umap.UMAP().fit(data)*
+    # *umap.plot.connectivity(reducer)*
+    # [image: image.png]

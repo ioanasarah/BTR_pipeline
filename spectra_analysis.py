@@ -350,8 +350,8 @@ def load_raw_average_spectra_from_zarrs(zarr_paths: list,
                 yi = y_coords[pix_idx_global]
 
                 if is_mosaic:
-                    mosaic_row = yi + sample_row_offset
-                    mosaic_col = xi + sample_col_offset
+                    mosaic_row = yi + sample_offset
+                    mosaic_col = xi + 0
                 else:
                     mosaic_row = yi
                     mosaic_col = xi
@@ -372,7 +372,13 @@ def load_raw_average_spectra_from_zarrs(zarr_paths: list,
 
     print(f"[raw]   Done. Processed {n_pixels} pixels.")
 
-
+    avg_spectra = {}
+    for cid in unique_clusters:
+        if cluster_counts[cid] > 0:
+            avg_spectra[cid] = cluster_sums[cid] / cluster_counts[cid]
+            print(f"  Cluster {cid+1}: {cluster_counts[cid]} raw pixels averaged")
+        else:
+            print(f"  Cluster {cid+1}: no pixels found -- skipping")
 
     return mz_axis, avg_spectra
 

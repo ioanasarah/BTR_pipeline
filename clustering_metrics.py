@@ -28,7 +28,8 @@ start_time = time.perf_counter()
 
 def percentage_abnormal_edge_pixels(spatial_map) -> float:
     # spatial_reconstruction is a 2D array of the same shape as the original image, where each pixel's value is the cluster label assigned to that pixel
-    # edge_window defines how many pixels from the ith pixel is used to determine if i is edge pixel or not 
+    # edge_window defines how many pixels from the ith pixel is used to determine if i is edge pixel or not
+    _t = time.perf_counter()
     count_abnormal_edge_pixels = 0
     total_edge_pixels = 0
     # total_pixels = 0
@@ -58,7 +59,7 @@ def percentage_abnormal_edge_pixels(spatial_map) -> float:
 
     paep = (count_abnormal_edge_pixels/total_edge_pixels if total_edge_pixels > 0 else 0.0) * 100
     print(f"Percentage of abnormal edge pixels: {paep:.4f}%")
-    print("Edge pixel analysis completed in {:.2f} seconds".format(time.perf_counter() - start_time))
+    print("Edge pixel analysis completed in {:.2f} seconds".format(time.perf_counter() - _t))
     return paep
 
 
@@ -97,7 +98,7 @@ if __name__ == "__main__":
         # f.write(f"Silhouette Score: {silhouette_avg:.4f}\n")
         f.write(f"Davies-Bouldin Score: {davies_bouldin_avg:.4f}\n")
         f.write(f"Calinski-Harabasz Score: {calinski_harabasz_avg:.4f}\n")
-        f.write(f"Percentage of abnormal edge pixels: {paep:.4f}\n%")
+        f.write(f"Percentage of abnormal edge pixels: {paep:.4f}%\n")
 
     print("Clustering metrics saved to file. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
 
@@ -107,8 +108,13 @@ def run_clustering_metrics(dimensionality_red_output, run_folder, params):
     X = dimensionality_red_output["embedding"]
     labels = dimensionality_red_output["labels"]
 
-    db = davies_bouldin_score(X, labels)
-    ch = calinski_harabasz_score(X, labels)
+    unique_labels = set(labels) - {-1}
+    if len(unique_labels) >= 2:
+        db = davies_bouldin_score(X, labels)
+        ch = calinski_harabasz_score(X, labels)
+    else:
+        db = float('nan')
+        ch = float('nan')
 
     paep = percentage_abnormal_edge_pixels(spatial_map=spatial_map)
 
