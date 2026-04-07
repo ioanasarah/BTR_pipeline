@@ -1413,12 +1413,12 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     else:
         raise ValueError(f"Unknown clustering method")
 
-    labels= label_matrix_clusters(
-        labels, 
-        matrix_scaled, 
-        5, 
-        2.0
-    )
+    # labels= label_matrix_clusters(
+    #     labels, 
+    #     matrix_scaled, 
+    #     5, 
+    #     2.0
+    # )
     n_clusters_found=len(set(labels)) - (1 if -1 in set(labels) else 0)
     # save results and plot
     if params["dimred"] == "pca":

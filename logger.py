@@ -68,7 +68,7 @@ def generate_method_name(params):
         params["peak_method"] + str(params["omp_coefs"]),
         params["dimred"].lower() + str(params["n_components"]),
         params["clustering"].lower() + str(params["n_clusters"]),
-        "matrix_labelling_attempt"
+        "matrix_labelling"
     ]
     if params.get("smoothing"):
         parts.append("smoothing")
