@@ -5,7 +5,8 @@ os.environ["NUMBA_DISABLE_INTEL_SVML"] = "1"
 import pandas as pd
 import time
 import numpy as np
-from preprocessing import run_preprocessing
+# from preprocessing import run_preprocessing
+from preprocessing_w_matrix import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
@@ -32,8 +33,9 @@ batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 single_params= {
     "batch_mode": True,
     "tissue": "liver",
+    "matrix_zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\matrix 2.zarr",
     "dataset": "liver",
-    "computer": "pc",
+    "computer": "PC",
     "experiment": "liver_PC",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
@@ -45,7 +47,7 @@ single_params= {
     "filtering": None,
     "peak_method": "OMP",
     "normalisation": "TIC",
-    "omp_coefs": 700,
+    "omp_coefs": 1000,
     "bin_tol": 0.005,
     "matrix_ratio_threshold": 3, 
 
@@ -61,7 +63,7 @@ single_params= {
 def generate_method_name(params):
     """Just the method combo — no dataset. Used as the grouping folder."""
     parts = [
-        params["peak_method"],
+        params["peak_method"] + str(params["omp_coefs"]),
         params["dimred"].lower() + str(params["n_components"]),
         params["clustering"].lower() + str(params["n_clusters"]),
     ]
