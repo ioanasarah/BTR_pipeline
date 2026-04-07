@@ -949,6 +949,50 @@ def hdbscan_clustering(matrix: np.ndarray,
 #     )
 # os.makedirs(run_folder, exist_ok=True)
 
+
+def label_matrix_clusters(
+        labels: np.ndarray,
+        matrix_2d: np.ndarray,   # the flat (n_pixels, n_features) normalised matrix
+        n_sentinel: int,
+        sentinel_ratio_threshold: float = 2.0
+) -> np.ndarray:
+    """
+    Any cluster whose mean sentinel signal is sentinel_ratio_threshold times
+    higher than the mean biological signal gets relabelled as -1 (matrix).
+
+    sentinel_ratio_threshold: how much higher sentinel columns must be 
+    relative to biological columns to call a cluster 'matrix'.
+    A value of 2.0 means sentinel mean must be 2× the biological mean.
+    """
+    n_bio = matrix_2d.shape[1] - n_sentinel
+
+    bio_cols      = matrix_2d[:, :n_bio]       # biological features
+    sentinel_cols = matrix_2d[:, n_bio:]       # matrix sentinel features
+
+    new_labels = labels.copy()
+    unique = np.unique(labels)
+    unique = unique[unique != -1]
+
+    ratios = {}
+    for cl in unique:
+        if cl == -1:
+            continue  # already noise (e.g. from HDBSCAN)
+        mask = labels == cl
+        mean_bio      = bio_cols[mask].mean()
+        mean_sentinel = sentinel_cols[mask].mean()
+        ratio = mean_sentinel / (mean_bio + 1e-9)
+        ratios[cl] = ratio
+
+        best_cl = max(ratios, key=ratios.get)
+        if ratio >= sentinel_ratio_threshold:
+            print(f"  Cluster {cl}: sentinel/bio ratio = {ratio:.2f} → labelled MATRIX (-1)")
+            new_labels[mask] = -1
+        else:
+            print(f"  Cluster {cl}: sentinel/bio ratio = {ratio:.2f} → biological")
+
+    return new_labels
+
+
 def reconstruct_spatial_map(labels:pd.Series,
                             mask: np.ndarray,
                             original_shape: tuple,
@@ -976,58 +1020,50 @@ def plot_spatial_map(spatial_map: np.ndarray,
     print( "Plotting spatial map of clusters...")
     # colors = ["black"]  # background
     
+
+    unique_clusters = np.unique(spatial_map)
+    unique_clusters = unique_clusters[unique_clusters >=0]
+
+    n_actual=len(unique_clusters)
+
+
     cluster_colours = [
         "red", "blue", "green", "yellow", "purple",
         "orange", "cyan", "magenta", "lime", "brown", 
         "pink", "white", "purple"
     ]
-    
-    # colors += base_colors[n_clusters]
 
-    spatial_map_shifted = spatial_map + 1
+    # remap cluster ids to contiguous 0-based indices so colormap lines up
+    remap = {cl: i+1 for i, cl in enumerate(unique_clusters)}  # +1 to leave 0 for background
+    spatial_map_remapped = np.full_like(spatial_map, 0)  # 0 = background (black)
+    for cl, new_idx in remap.items():
+        spatial_map_remapped[spatial_map == cl] = new_idx
 
-
-    # print("Unique values in spatial_map:", np.unique(spatial_map))
-    # print("Unique values in spatial_map_shifted:", np.unique(spatial_map_shifted))
-
-
-    colours = ["black"] + cluster_colours[:n_clusters]
+    colours = ["black"] + cluster_colours[:n_actual]
     cmap = ListedColormap(colours)
 
-    
     fig, ax = plt.subplots(figsize=(10, 8))
-
-    # image = ax.imshow(spatial_map_shifted, cmap='tab10', interpolation='nearest')
-
     image = ax.imshow(
-            spatial_map_shifted,
-            cmap=cmap,
-            interpolation='nearest',
-            vmin=0
-            # vmax=n_clusters + 2
-        )
-
-    tick_positions = np.arange(n_clusters + 1)
-
-    cbar = plt.colorbar(image, ax=ax, ticks=tick_positions)
-
-    cbar.set_ticklabels(
-        ["bg"] + [str(i) for i in range(1, n_clusters + 1)]
+        spatial_map_remapped,
+        cmap=cmap,
+        interpolation='nearest',
+        vmin=0,
+        vmax=n_actual  # exactly as many colours as clusters + background
     )
-    # cbar.set_ticklabels(["0 (bg)"] + [str(i) for i in range(1, n_clusters + 1)])
+
+    tick_positions = np.arange(n_actual + 1)
+    cbar = plt.colorbar(image, ax=ax, ticks=tick_positions)
+    cbar.set_ticklabels(["bg"] + [str(cl) for cl in unique_clusters])
     cbar.set_label("Cluster")
 
-    # plt.colorbar(image, ax=ax, label="Cluster")
     ax.set_title(title, fontsize=14)
     ax.set_xlabel("X (pixels)", fontsize=12)
     ax.set_ylabel("Y (pixels)", fontsize=12)
 
-   
     plt.savefig(f"{run_folder}\\spatial_map.png", dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Spatial map figure saved to {run_folder}\\spatial_map.png")
-    print("Spatial map plotting complete. Took {:.2f} seconds".format(time.perf_counter() - start_time))
-    plt.show()
+
 
 
 def plot_elbow_method(umap_transformed: np.ndarray, k_range: range, run_folder:str) -> None:
@@ -1377,7 +1413,12 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     else:
         raise ValueError(f"Unknown clustering method")
 
-
+    labels= label_matrix_clusters(
+        labels, 
+        matrix_scaled, 
+        5, 
+        2.0
+    )
     n_clusters_found=len(set(labels)) - (1 if -1 in set(labels) else 0)
     # save results and plot
     if params["dimred"] == "pca":

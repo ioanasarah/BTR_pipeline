@@ -6,7 +6,9 @@ import pandas as pd
 import time
 import numpy as np
 # from preprocessing import run_preprocessing
-from preprocessing_w_matrix import run_preprocessing
+# from preprocessing_w_matrix import run_preprocessing
+# from old_prep_code import run_preprocessing
+from trying_prep import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
@@ -49,7 +51,7 @@ single_params= {
     "normalisation": "TIC",
     "omp_coefs": 1000,
     "bin_tol": 0.005,
-    "matrix_ratio_threshold": 3, 
+    "matrix_ratio_threshold": None, 
 
     "dimred": "pca", 
     "n_components": 10,
@@ -66,6 +68,7 @@ def generate_method_name(params):
         params["peak_method"] + str(params["omp_coefs"]),
         params["dimred"].lower() + str(params["n_components"]),
         params["clustering"].lower() + str(params["n_clusters"]),
+        "matrix_labelling_attempt"
     ]
     if params.get("smoothing"):
         parts.append("smoothing")

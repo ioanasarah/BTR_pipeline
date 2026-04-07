@@ -861,6 +861,56 @@ def no_matrix_peaks(avg_intensity: np.ndarray,
     return suppressed
     
 
+def peak_detection_omp_old(mz, 
+        avg_intensity,
+        run_folder, 
+        window_size=0.07, 
+        non_zero_coefs=700):
+    print("detecting peaks using OMP...")
+
+    # use mad to get candidate peaks for OMP
+    median = np.median(avg_intensity)
+    mad_noise = np.median(np.abs(avg_intensity - median))
+    threshold = 2 * mad_noise # 2 is the snr 
+
+    candidate_peak_idxs = []
+    window = 20 # index-based window for local max check
+    for i in range(window, len(avg_intensity) - window):
+        local_window = avg_intensity[i-window:i+window+1]
+        if avg_intensity[i] == np.max(local_window) and avg_intensity[i] > threshold:
+            candidate_peak_idxs.append(i)
+    # this loop checks each m/z peak to see if its the highest intensity in a +/- 20 idx window AND if its above noise threshold
+    # if it is, then it gets appended to the candidate peaks -- which will be used for omp
+
+    candidate_idxs = np.array(candidate_peak_idxs)
+    candidate_mz = mz[candidate_idxs]
+    print(f"MAD found {len(candidate_mz)} candidates for OMP dictionary")
+
+
+    # starts OMP peak detection using the candidate peaks as the dictionary
+
+    X = np.zeros((len(mz), len(candidate_mz))) # initialize a matrix X with rows corresponding to m/z values and columns corresponding to candidate peaks
+    for i, cm in enumerate(candidate_mz):
+        X[:, i] = np.exp(-0.5 * ((mz - cm) / window_size) ** 2)
+    # Creates a matrix X where each column is a Gaussian "peak shape" centred at one candidate m/z. This represents what a perfect peak would look like at that position
+# e^(-0.5 * ((mz - cm) / window_size) ** 2) is the formula for a Gaussian function, where cm is the center of the peak and window_size controls the width of the peak. This creates a bell-shaped curve that peaks at cm and falls off as you move away from cm, with the rate of falloff determined by window_size.
+    n_coefs = min(non_zero_coefs, len(candidate_mz)) #
+    omp = OrthogonalMatchingPursuit(n_nonzero_coefs=n_coefs)
+    omp.fit(X, avg_intensity) # fits the OMP model to find the best combination of candidate peaks that can reconstruct the average spectrum with a sparse set of coefficients (non_zero_coefs controls how many peaks we want to keep)
+
+    coef = omp.coef_
+    selected_idxs = coef.nonzero()[0]
+    peak_mz = candidate_mz[selected_idxs]
+    peak_intensities = avg_intensity[candidate_idxs[selected_idxs]]
+
+    pd.DataFrame({"mz": peak_mz}).to_csv(f"{run_folder}\\peak_mz_values.csv", index=False)
+
+    print(f"Detected {len(peak_mz)} peaks in {time.perf_counter() - start_time:.2f} seconds")
+    return peak_mz, peak_intensities
+
+
+
+
 def peak_detection_omp(mz, 
         avg_intensity,
         run_folder, 
@@ -1013,6 +1063,30 @@ def tic_normalization(filtered_spectra: np.ndarray, run_folder:str,
     
     return normalised_matrix
 
+def reshaping_to_3d_matrix_old(
+        data, 
+        filtered_spectra
+        ):
+    print("reshaping to 3D matrix...")
+    x_coords = data.obs["x"].values
+    y_coords = data.obs["y"].values
+
+    width = len(np.unique(x_coords))
+    height = len(np.unique(y_coords))
+    print(f"Reshaping to 3D matrix with dimensions: ({height}, {width}, {filtered_spectra.shape[1]})")
+
+    if issparse(filtered_spectra):
+        spectra_array = filtered_spectra.toarray()
+    else:
+        spectra_array = filtered_spectra
+    matrix = spectra_array.reshape(height, width, -1)
+    # matrix = filtered_spectra.reshape(height, width, -1)
+    print(f"Reshaped matrix shape: {matrix.shape} in {time.perf_counter() - start_time:.2f} seconds")
+    
+    return matrix
+
+
+
 def reshaping_to_3d_matrix(
         data, 
         filtered_spectra
@@ -1136,14 +1210,31 @@ def preprocess_single_sample(zarr_path: str,
     else:
         avg_intensity_for_omp = avg_intensity
     if params["peak_method"] == "OMP":
-        peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
-                                         non_zero_coefs=params["omp_coefs"], 
-                                         candidate_intensity = avg_intensity_for_omp)
+        peak_mz, _ = peak_detection_omp_old(mz, avg_intensity, run_folder,
+                                         non_zero_coefs=params["omp_coefs"]
+                                        #  candidate_intensity = avg_intensity_for_omp
+                                         )
         
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
 
  
+    if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
+        peak_mz, removed = filter_matrix_peaks(
+            peak_mz,
+            matrix_peaks_df,
+            ratio_threshold=params["matrix_ratio_threshold"],
+            # tol=params.get("bin_tol", 0.1),
+            tol=0.1
+        )
+
+        print(f"[preprocess_single_sample] peaks before matrix filter: {len(peak_mz) + len(removed)}")
+        print(f"[preprocess_single_sample] peaks after matrix filter: {len(peak_mz)}")
+        print(f"[preprocess_single_sample] removed matrix peaks: {removed}")
+        pd.DataFrame({"mz": removed}).to_csv(
+            os.path.join(sample_folder, "removed_matrix_peaks.csv"), index=False
+        )
+
     bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
     pooled_spectra, pooled_mz = pooling(data.X, mz, bins)
     _, filtered_spectra, filtered_mz = filtering(pooled_spectra, pooled_mz, run_folder)
@@ -1215,7 +1306,7 @@ def run_preprocessing(params, run_folder):
 
         # harmonise to common m/z axis
         reindexed_matrices, common_mz = harmonise_mz_axes(
-            sample_matrices, sample_mz_lists, full_mz_axes, tol=0.05
+            sample_matrices, sample_mz_lists, full_mz_axes, tol=0.05, min_presence=0.2
         )
 
         # save common mz for feature selection downstream
@@ -1232,23 +1323,45 @@ def run_preprocessing(params, run_folder):
             full_mz_axis=full_mz_axes[0],  # all share same raw mz axis
             gap=10
         )
-        # if sample_offset > 0:
+        mosaic_flat = mosaic.reshape(-1, mosaic.shape[2])
+        mosaic_sum = mosaic_flat.sum(axis=1).reshape(mosaic.shape[0], mosaic.shape[1])
+        n_matrix_nonzero = (mosaic_sum[:sample_offset, :] > 0).sum()
+        print(f"[debug] Matrix block nonzero pixels: {n_matrix_nonzero}")
+        print(f"[debug] Matrix block rows: 0–{sample_offset}")
+        print(f"[debug] Matrix block mean intensity: {mosaic[:sample_offset,:,:].mean():.6f}")
+        print(f"[debug] Sample block mean intensity: {mosaic[sample_offset:,:,:].mean():.6f}")
+
+            # if sample_offset > 0:
         #     mosaic[:sample_offset, :, :] = 0.0   # exclude matrix block from clustering
         #     print(f"[run_preprocessing] Matrix block excluded: rows 0–{sample_offset}")
 
-        np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
-        np.save(f"{run_folder}/matrix.npy", mosaic)
-        offsets_df.to_csv(f"{run_folder}/sample_spatial_offset.csv", index=False)
+        # in run_preprocessing, after build_slide_mosaic
+        # add a synthetic matrix-marker feature
+        # h, w, n_mz = mosaic.shape
+        # marker = np.zeros((h, w, 1), dtype=mosaic.dtype)
+        # marker[:sample_offset, :, :] = 1.0  # matrix block rows get marker=1
 
-        # np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
-        # np.save(f"{run_folder}/matrix.npy", mosaic)
-
-        print(f"[preprocessing] Mosaic saved. Shape: {mosaic.shape}")
+        # mosaic_with_marker = np.concatenate([mosaic, marker], axis=2)
+        # np.save(f"{run_folder}/matrix.npy", mosaic_with_marker)
 
         return {
             "matrix_path": f"{run_folder}/matrix.npy",
             "n_features":  mosaic.shape[-1]
         }
+
+        # np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
+        # # np.save(f"{run_folder}/matrix.npy", mosaic)
+        # offsets_df.to_csv(f"{run_folder}/sample_spatial_offset.csv", index=False)
+
+        # # np.save(f"{run_folder}/sample_offset.npy", np.array([sample_offset]))
+        # # np.save(f"{run_folder}/matrix.npy", mosaic)
+
+        # print(f"[preprocessing] Mosaic saved. Shape: {mosaic.shape}")
+
+        # return {
+        #     "matrix_path": f"{run_folder}/matrix.npy",
+        #     "n_features":  mosaic.shape[-1]
+        # }
     else:
         # ── SINGLE SAMPLE MODE ────────────────────────────────────────────
         print("[preprocessing] Running in single sample mode...")
@@ -1289,7 +1402,7 @@ def run_preprocessing(params, run_folder):
             pooled_spectra, pooled_mz, run_folder
         )
         normalized_matrix = tic_normalization(filtered_spectra, run_folder)
-        matrix = reshaping_to_3d_matrix(AnnData, normalized_matrix)
+        matrix = reshaping_to_3d_matrix_old(AnnData, normalized_matrix)
 
         np.save(f"{run_folder}/matrix.npy", matrix)
 
