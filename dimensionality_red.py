@@ -949,6 +949,58 @@ def hdbscan_clustering(matrix: np.ndarray,
 #     )
 # os.makedirs(run_folder, exist_ok=True)
 
+def identify_matrix_cluster(
+    labels: np.ndarray,
+    spatial_map: np.ndarray,
+    corner_fraction: float = 0.2,
+    min_corner_fraction: float = 0.3
+) -> int | None:
+    """
+    Identifies the cluster that predominantly occupies the top-left corner
+    of the spatial map (where the matrix block signal typically lives).
+
+    Returns:
+        matrix_cluster_id: the cluster label identified as matrix, or None if no cluster
+                           clears the min_corner_fraction threshold
+    """
+    height, width = spatial_map.shape
+    corner_row = int(height * corner_fraction)
+    corner_col = int(width * corner_fraction)
+
+    # extract the corner region (excluding background)
+    corner_region = spatial_map[:corner_row, :corner_col]
+    corner_labels = corner_region[corner_region >= 0]  # exclude -1 background
+
+    if len(corner_labels) == 0:
+        print("No non-background pixels found in corner region.")
+        return None
+
+    unique_clusters = np.unique(labels[labels >= 0])
+    cluster_sizes = {cl: np.sum(labels == cl) for cl in unique_clusters}
+
+    # for each cluster finds what fraction of its pixels are in the corner
+    corner_counts = pd.Series(corner_labels).value_counts()
+
+    best_cluster = None
+    best_score = 0.0
+
+    for cl, count in corner_counts.items():
+        fraction_in_corner = count / cluster_sizes[cl]
+        print(f"  Cluster {cl}: {count} pixels in corner, "
+              f"{fraction_in_corner:.1%} of cluster total --> corner score: {fraction_in_corner:.3f}")
+        if fraction_in_corner > best_score:
+            best_score = fraction_in_corner
+            best_cluster = cl
+
+    if best_score < min_corner_fraction:
+        print(f"  No cluster cleared the threshold ({min_corner_fraction:.0%}). "
+              f"Best was cluster {best_cluster} at {best_score:.1%}.")
+        return None
+
+    print(f"Matrix cluster identified: {best_cluster} "
+          f"({best_score:.1%} of its pixels are in the top-left corner)")
+    return int(best_cluster)
+
 
 def label_matrix_clusters(
         labels: np.ndarray,
@@ -1015,8 +1067,10 @@ def reconstruct_spatial_map(labels:pd.Series,
 
 def plot_spatial_map(spatial_map: np.ndarray,
                      title: str, 
-                     run_folder: str, 
-                     n_clusters):
+                     run_folder: str,
+                     n_clusters, 
+                     matrix_cluster_id = None
+                    ):
     print( "Plotting spatial map of clusters...")
     # colors = ["black"]  # background
     
@@ -1051,9 +1105,16 @@ def plot_spatial_map(spatial_map: np.ndarray,
         vmax=n_actual  # exactly as many colours as clusters + background
     )
 
+    tick_labels = ["Background"] 
+    for cl in unique_clusters:
+        if matrix_cluster_id is not None and cl == matrix_cluster_id:
+            tick_labels.append(f"{cl} (Matrix)")
+        else: 
+            tick_labels.append(f"{cl}")
+
     tick_positions = np.arange(n_actual + 1)
     cbar = plt.colorbar(image, ax=ax, ticks=tick_positions)
-    cbar.set_ticklabels(["bg"] + [str(cl) for cl in unique_clusters])
+    cbar.set_ticklabels(tick_labels)
     cbar.set_label("Cluster")
 
     ax.set_title(title, fontsize=14)
@@ -1487,15 +1548,22 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         save_html=f"{run_folder}\\plot.html"
     )
     
-
     spatial_map = reconstruct_spatial_map(labels, mask, original_shape, run_folder, params['run_id'])
+
+    matrix_cluster_id = identify_matrix_cluster(
+        labels=labels.values,
+        spatial_map=spatial_map,
+        corner_fraction=params.get("matrix_corner_fraction", 0.2),
+        min_corner_fraction=params.get("matrix_min_corner_fraction", 0.3)
+    )
+
     plot_spatial_map(
         spatial_map, 
         title=f"Spatial Map - {params['run_id']}", 
         run_folder=run_folder, 
-        n_clusters=n_clusters_found)
-
-    runtime = time.perf_counter() - start_time
+        n_clusters=n_clusters_found,
+        matrix_cluster_id=matrix_cluster_id
+    )
 
     return {
         "embedding": embedding,
@@ -1506,7 +1574,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         "original_shape": original_shape,
         "labels": labels,
         "run_name": params["run_id"],
-        "runtime": runtime,
+        # "runtime": runtime,
         "n_samples": len(labels),
         "n_clusters_found": len(set(labels)) - (1 if -1 in set(labels) else 0)
     }

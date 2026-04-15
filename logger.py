@@ -5,10 +5,7 @@ os.environ["NUMBA_DISABLE_INTEL_SVML"] = "1"
 import pandas as pd
 import time
 import numpy as np
-# from preprocessing import run_preprocessing
-# from preprocessing_w_matrix import run_preprocessing
-# from old_prep_code import run_preprocessing
-from trying_prep import run_preprocessing
+from preprocessing import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
@@ -20,11 +17,11 @@ slide_filter = "DHB Slide 11 50 um" # None to run all slides
 #  DHB Slide 4 50 um
 
 
-results_folder = r"C:\Users\i6338212\data\results"
-# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
+# results_folder = r"C:\Users\i6338212\data\results"
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
 results_csv = os.path.join(results_folder, "liver_experiment_results.csv")
 
-batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
+# batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 
 # reduction_name = "OMP_pca10_k3_no_smoothing"
 
@@ -33,31 +30,31 @@ batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 
 
 single_params= {
-    "batch_mode": True,
-    "tissue": "liver",
-    "matrix_zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\matrix 2.zarr",
-    "dataset": "liver",
-    "computer": "PC",
-    "experiment": "liver_PC",
+    "batch_mode": False,
+    "tissue": "hippocampus",
+    "dataset": "hippocampus",
+    "computer": "laptop",
+    "experiment": "hippocampus_laptop",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    "zarr_path": r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
-    "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
+    # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
-    "smoothing": None,
+    "smoothing": "5x5",
 
     # "smoothing": None,
     "filtering": None,
     "peak_method": "OMP",
     "normalisation": "TIC",
-    "omp_coefs": 1000,
+    "omp_coefs": 700,
     "bin_tol": 0.005,
-    "matrix_ratio_threshold": None, 
+    "matrix_ratio_threshold": 3, 
 
     "dimred": "pca", 
     "n_components": 10,
 
     "clustering": "kmeans",
-    "n_clusters":5
+    "n_clusters":4
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -65,10 +62,10 @@ single_params= {
 def generate_method_name(params):
     """Just the method combo — no dataset. Used as the grouping folder."""
     parts = [
-        params["peak_method"] + str(params["omp_coefs"]),
+        params["peak_method"],
         params["dimred"].lower() + str(params["n_components"]),
         params["clustering"].lower() + str(params["n_clusters"]),
-        "matrix_labelling"
+        "attempt_label_matrix"
     ]
     if params.get("smoothing"):
         parts.append("smoothing")
