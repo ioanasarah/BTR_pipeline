@@ -49,6 +49,7 @@ single_params= {
     "omp_coefs": 700,
     "bin_tol": 0.005,
     "matrix_ratio_threshold": 3, 
+    "matrix_zarr_path": None,
 
     "dimred": "pca", 
     "n_components": 10,

@@ -289,6 +289,9 @@ def identify_matrix_peaks(
                            matrix_zarr_path: str = None,
                            top_n_images: int = 50,
                            tol: float = 0.1) -> pd.DataFrame:
+    # load the first sample zarr to get the m/z axis (assuming all samples share the same m/z axis)
+    s_adata_first = list(sd.read_zarr(sample_zarr_paths[0]).tables.values())[0]
+    mz_axis = s_adata_first.var["mz"].values
 
     # load matrix zarr and get average spectrum
     if matrix_zarr_path is not None:
@@ -1218,7 +1221,7 @@ def run_preprocessing(params, run_folder):
     if not sample_zarr_paths:
         sample_zarr_paths = [params.get("zarr_path")]
 
-    print(f"[preprocessing] Processing {len(sample_zarr_paths)} samples for slide mosaic...")
+    print(f"[preprocessing] Processing {len(sample_zarr_paths)} samples...")
 
     sample_matrices = []
     sample_mz_lists = []
@@ -1237,6 +1240,7 @@ def run_preprocessing(params, run_folder):
         print(f"[preprocessing] Reference OMP found {len(ref_peak_mz)} candidate peaks")
 
     # identify matrix peaks first if matrix zarr available
+        
         matrix_peaks_df = None
         matrix_zarr_path = params.get("matrix_zarr_path")
         if matrix_zarr_path and params.get("matrix_ratio_threshold"):
@@ -1323,7 +1327,8 @@ def run_preprocessing(params, run_folder):
             )
 
         peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
-
+        
+        print(f"[debug] len(spatial_data.var['mz'].values): {len(spatial_data.var['mz'].values)}")
         matrix_zarr_path = params.get("matrix_zarr_path")
         if matrix_zarr_path or params.get("matrix_ratio_threshold"):
             matrix_peaks_df = identify_matrix_peaks(
