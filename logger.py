@@ -18,12 +18,12 @@ slide_filter = None # None to run all slides
 
 
 # results_folder = r"C:\Users\i6338212\data\results"
-# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
-results_folder = r"C:\Users\i6338212\data\results"
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
+# results_folder = r"C:\Users\i6338212\data\results"
 results_csv = os.path.join(results_folder, "experiment_results.csv")
 
 # batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
-batch_root = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr"
+# batch_root = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr"
 
 # reduction_name = "OMP_pca10_k3_no_smoothing"
 
@@ -33,20 +33,20 @@ batch_root = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr"
 
 single_params= {
     "batch_mode": False,
-    "tissue": "hippocampus_mosaic",
-    "dataset": "hippocampus_mosaic",
-    "computer": "theos_comp",
+    "tissue": "hippocampus",
+    "dataset": "hippocampus",
+    "computer": "laptop",
     "experiment": "hippocampus_laptop",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr",
-    "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
+    "zarr_path": r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr",
+    # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
     "smoothing": None,
 
     # "smoothing": None,
-    "filtering": None,
+    "filtering": "guided", # None, "median", "savgol", "gaussian", "guided"
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
@@ -69,7 +69,6 @@ def generate_method_name(params):
         params["peak_method"],
         params["dimred"].lower() + str(params["n_components"]),
         params["clustering"].lower() + str(params["n_clusters"]),
-        "attempt_label_matrix"
     ]
     if params.get("smoothing"):
         parts.append("smoothing")

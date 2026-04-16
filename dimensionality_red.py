@@ -22,6 +22,7 @@ from scipy.ndimage import uniform_filter
 from scipy.stats import f_oneway
 from scipy.spatial.distance import cdist
 from scipy.linalg import eigh
+import cv2
 import statsmodels
 from statsmodels.stats.multitest import multipletests
 import scipy.sparse as sp
@@ -239,6 +240,38 @@ def perform_pca(X: np.ndarray, n_components: int) -> np.ndarray:
     explained = pca.explained_variance_ratio_
     print("done with PCA! took {:.2f} seconds".format(time.perf_counter() - _t))
     return pca_transformed, loadings, explained
+
+
+def guided_filter_embedding(embedding_2d, height, width, radius=8, eps=0.01):
+    """
+    Apply guided filter to each component of a 2D embedding.
+    
+    embedding_2d: shape (n_pixels, n_components) — output of UMAP/PCA
+    height, width: spatial dimensions of the image
+    Returns filtered embedding of same shape
+    """
+    print("Applying guided filter to embedding...")
+    n_pixels, n_components = embedding_2d.shape
+    filtered = np.zeros_like(embedding_2d)
+    
+    for c in range(n_components):
+        # reshape component to 2D spatial image
+        component_image = embedding_2d[:, c].reshape(height, width).astype(np.float32)
+        
+        # apply guided filter (self-guided)
+        filtered_image = cv2.ximgproc.guidedFilter(
+            guide=component_image,
+            src=component_image,
+            radius=radius,
+            eps=eps
+        )
+        
+        # flatten back to 1D
+        filtered[:, c] = filtered_image.flatten()
+    
+    return filtered
+
+
 
 
 def save_pca_results(pca_transformed: np.array,
@@ -888,39 +921,24 @@ def kmeans_clustering(matrix: np.ndarray,
     print(f"KMeans clustering took {time.perf_counter() - start_time:.2f} seconds")
     return pd.Series(labels)
 
-def spectral_clustering(matrix: np.ndarray,
-                        n_clusters: int,
-                        random_state: Optional[int] = None) -> pd.Series:
-    
-        # (random_state = None, n_components = 20, n_init = 10, gamma = 1, affinity = 
-# ‘rbf’, n_neighbors = 10, eigen_tol = 0.0, assign_labels = ‘kmeans’, degree = 3)
-    idx = np.random.choice(len(matrix), size=min(10000, len(matrix)), replace=False)
-    sample = matrix[idx]
+def spectral_clustering(matrix: np.ndarray, 
+                      n_clusters: int,
+                      random_state: Optional[int]=None,
+                      n_init: int = 10) -> pd.Series:
 
-    sc = SpectralClustering(n_clusters=n_clusters, affinity='nearest_neighbors', n_neighbors=10, assign_labels='kmeans')
-    sample_labels = sc.fit_predict(sample)  # fit on a random sample to find cluster centers
-
-    centroids = np.array([sample[sample_labels == k].mean(axis=0) for k in range(n_clusters)])
-    # Use KMeans to assign labels to all remaining points based on spectral cluster centers
-    # from sklearn.cluster import KMeans
-    km = KMeans(n_clusters=n_clusters, init=centroids, n_init=1)
-    km.fit(sample)  # fit KMeans to same sample
-    labels_all = km.predict(matrix)  
-    # spectral_labels = SpectralClustering(
-    #     n_clusters=n_clusters, 
-    #     n_components=20,
-    #     n_init=10, 
-    #     gamma=1, 
-    #     random_state=random_state, 
-    #     affinity='nearest_neighbors',  # instead of rbf because it would be too much ram (like 1 tb)
-    #     n_neighbors=10, 
-    #     assign_labels='kmeans'
-    # )
-    # labels = labels_all
-    print(f"Spectral Clustering complete. Found {n_clusters} clusters.")
-    print(f"Cluster sizes: {pd.Series(labels_all).value_counts().sort_index().to_dict()}")
-    print(f"Spectral clustering took {time.perf_counter() - start_time:.2f} seconds")
-    return pd.Series(labels_all)
+    sc = SpectralClustering(
+        n_clusters=4,
+        affinity='nearest_neighbors',  # much cheaper than rbf for large data
+        n_neighbors=10,
+        assign_labels='kmeans',
+        random_state=42,
+        n_jobs=-1
+    )   
+    labels = sc.fit_predict(matrix)  # groups pixels from umap into clusters based on their similarity 
+    print(f"KMeans complete. Found {n_clusters} clusters.")
+    print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
+    print(f"KMeans clustering took {time.perf_counter() - start_time:.2f} seconds")
+    return pd.Series(labels)
 
 
 
@@ -1459,6 +1477,15 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     else:
         raise ValueError(f"Unknown dimred method: {params['dimred']}")
 
+
+
+    if params.get("filtering") == "guided":
+        embedding = guided_filter_embedding(
+            embedding,
+            pixel_graph,
+            alpha=params.get("guided_filter_alpha", 0.5),
+            run_folder=run_folder
+        )
     # clustering
     if params["clustering"] == "kmeans":
         labels = kmeans_clustering(

@@ -13,6 +13,8 @@ from sklearn.linear_model import OrthogonalMatchingPursuit
 import pandas as pd
 import os
 import scipy.sparse
+from scipy.signal import savgol_filter
+from scipy.ndimage import gaussian_filter
 from scipy.signal import medfilt
 from scipy.sparse import issparse
 # import msiwarp as mw
@@ -854,11 +856,20 @@ def median_filter_spectrum(intensity, kernel_size=5):
     kernel_size must be odd (e.g., 3, 5, 7).
     """
     print(f"Applying median filter (kernel size = {kernel_size})...")
-    
     filtered = medfilt(intensity, kernel_size=kernel_size)
-
-    
     return filtered 
+
+
+def savgol_filter_spectrum(intensity, window_length=11, polyorder=3):
+    print(f"Applying Savitzky-Golay filter (window={window_length}, poly={polyorder})...")
+    filtered = savgol_filter(intensity, window_length=window_length, polyorder=polyorder)
+    filtered = np.clip(filtered, 0, None)  # remove negative values from smoothing
+    return filtered
+
+def gaussian_filter_spectrum(intensity, sigma=1.0):
+    print(f"Applying Gaussian filter (sigma={sigma})...")
+    filtered = gaussian_filter(intensity, sigma=sigma)
+    return filtered
 
 
 def peak_detection_mad(
@@ -1174,13 +1185,20 @@ def preprocess_single_sample(zarr_path: str,
     
     spatial_data = reading_data(zarr_path)
     data, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
+
+    # DEFINE FILTERING
     if params.get("filtering") == "median":
         avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
+    elif params.get("filtering") == "savgol":
+        avg_intensity = savgol_filter_spectrum(avg_intensity, window_length=11, polyorder=3)
+    elif params.get("filtering") == "gaussian":
+        avg_intensity = gaussian_filter_spectrum(avg_intensity, sigma=1.0)
 
+    # DEFINE PEAK DETECTION
     if params["peak_method"] == "OMP":
         peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
                                          non_zero_coefs=params["omp_coefs"])
-        
+     
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
 
@@ -1311,10 +1329,12 @@ def run_preprocessing(params, run_folder):
         spatial_data = reading_data(params["zarr_path"])
         AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
 
-        if params["filtering"] == "median":
-            filtered_avg_intensity = median_filter_spectrum(
-                filtered_avg_intensity, kernel_size=5
-            )
+        if params.get("filtering") == "median":
+            avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
+        elif params.get("filtering") == "savgol":
+            avg_intensity = savgol_filter_spectrum(avg_intensity, window_length=11, polyorder=3)
+        elif params.get("filtering") == "gaussian":
+            avg_intensity = gaussian_filter_spectrum(avg_intensity, sigma=1.0)
 
         if params["peak_method"] == "OMP":
             peak_mz, _ = peak_detection_omp(
@@ -1326,12 +1346,13 @@ def run_preprocessing(params, run_folder):
                 mz, filtered_avg_intensity, window_size=20, snr=2
             )
 
-        peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
+        # peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
         
-        print(f"[debug] len(spatial_data.var['mz'].values): {len(spatial_data.var['mz'].values)}")
+        # print(f"[debug] len(spatial_data.var['mz'].values): {len(spatial_data.var['mz'].values)}")
         matrix_zarr_path = params.get("matrix_zarr_path")
-        if matrix_zarr_path or params.get("matrix_ratio_threshold"):
-            matrix_peaks_df = identify_matrix_peaks(
+        # if matrix_zarr_path or params.get("matrix_ratio_threshold"):
+        
+        matrix_peaks_df = identify_matrix_peaks(
                 # matrix_zarr_path=matrix_zarr_path,
                 corner_fraction=0.2,
                 sample_zarr_paths=sample_zarr_paths,
@@ -1340,13 +1361,14 @@ def run_preprocessing(params, run_folder):
                 matrix_zarr_path=matrix_zarr_path,
                 top_n_images=20
             )
-        if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
-            peak_mz, removed = filter_matrix_peaks(
-                peak_mz,
-                matrix_peaks_df,
-                ratio_threshold=params["matrix_ratio_threshold"],
-                tol=0.2
-            )
+        print(matrix_peaks_df)
+        # if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
+        #     peak_mz, removed = filter_matrix_peaks(
+        #         peak_mz,
+        #         matrix_peaks_df,
+        #         ratio_threshold=params["matrix_ratio_threshold"],
+        #         tol=0.2
+        #     )
 
         bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
         pooled_spectra, pooled_mz = pooling(AnnData.X, mz, bins)
