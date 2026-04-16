@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
 import matchms 
+import shutil
 from matchms import Spectrum
 from sklearn.linear_model import OrthogonalMatchingPursuit
 import pandas as pd
@@ -29,7 +30,14 @@ start_time = time.perf_counter()
 
 def reading_data(path):
     print("reading data...")
+    for group in ["images", "shapes"]:
+        group_path = os.path.join(path, group)
+        if os.path.exists(group_path):
+            shutil.rmtree(group_path)
+            print(f"Removed empty {group} group")
+
     # path = r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr"
+    # spatial_data = sd.read_zarr(path)
     spatial_data = sd.read_zarr(path)
     print(f"data read in {time.perf_counter() - start_time:.2f} seconds")    
     return spatial_data  
@@ -1308,6 +1316,12 @@ def run_preprocessing(params, run_folder):
     else:
         # ── SINGLE SAMPLE MODE ────────────────────────────────────────────
         print("[preprocessing] Running in single sample mode...")
+        # import zarr
+        # z = zarr.open(params["zarr_path"])
+        # print(list(z.keys()))  # see what's inside
+        # for key in z.keys():
+        #     print(key, dict(z[key].attrs))
+
         spatial_data = reading_data(params["zarr_path"])
         AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
 
