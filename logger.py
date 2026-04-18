@@ -43,7 +43,7 @@ single_params= {
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
-    "smoothing": None,
+    "smoothing": "8_connect",
 
     # "smoothing": None,
     "filtering": "guided", # None, "median", "savgol", "gaussian", "guided"

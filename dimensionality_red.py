@@ -114,14 +114,14 @@ def load_and_preprocess_msi(
         print(f"Raw matrix saved to {save_raw}")
     
     # Scale features
-    # scaler = StandardScaler()
-    # X_scaled = scaler.fit_transform(X)
-    # X_scaled += np.random.normal(0, 1e-6, X_scaled.shape) # add small noise to avoid zero variance issues in UMAP
-    # if save_scaled:
-    #     np.save(save_scaled, X_scaled)
-    #     print(f"Scaled matrix saved to {save_scaled}")
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    X_scaled += np.random.normal(0, 1e-6, X_scaled.shape) # add small noise to avoid zero variance issues in UMAP
+    if save_scaled:
+        np.save(save_scaled, X_scaled)
+        print(f"Scaled matrix saved to {save_scaled}")
 
-    # print(f"Scaling completed in {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Scaling completed in {time.perf_counter() - start_time:.2f} seconds")
     
     return X, mask, original_shape, noise
 
@@ -145,15 +145,15 @@ def smooth_and_scale_matrix(X: np.array,
     else: 
         X_smooth = X
 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_smooth)
-    X_scaled += np.random.normal(0, 1e-6, X_scaled.shape)
+    # scaler = StandardScaler()
+    # X_scaled = scaler.fit_transform(X_smooth)
+    # X_scaled += np.random.normal(0, 1e-6, X_scaled.shape)
 
-    if save_scaled and run_folder:
-        np.save(os.path.join(run_folder, "matrix_scaled.npy"), X_scaled)
-        print(f"Scaled matrix saved.")
+    # if save_scaled and run_folder:
+    #     np.save(os.path.join(run_folder, "matrix_scaled.npy"), X_scaled)
+    #     print(f"Scaled matrix saved.")
 
-    return X_scaled
+    return X_smooth
 
 
 def subset_matrix(matrix: np.ndarray, subset_size: int = 50_000, seed: int = 42) -> np.ndarray:
@@ -242,7 +242,7 @@ def perform_pca(X: np.ndarray, n_components: int) -> np.ndarray:
     return pca_transformed, loadings, explained
 
 
-def guided_filter_embedding(embedding_2d, height, width, radius=8, eps=0.01):
+def guided_filter_embedding(embedding_2d, height, width, mask, radius=8, eps=0.01):
     """
     Apply guided filter to each component of a 2D embedding.
     
@@ -251,12 +251,15 @@ def guided_filter_embedding(embedding_2d, height, width, radius=8, eps=0.01):
     Returns filtered embedding of same shape
     """
     print("Applying guided filter to embedding...")
-    n_pixels, n_components = embedding_2d.shape
+    n_masked_pixels, n_components = embedding_2d.shape
     filtered = np.zeros_like(embedding_2d)
     
     for c in range(n_components):
-        # reshape component to 2D spatial image
-        component_image = embedding_2d[:, c].reshape(height, width).astype(np.float32)
+        # reconststruct full spatial image (0 for bg)
+        full_image = np.zeros(height * width, dtype=np.float32)
+        full_image[mask] = embedding_2d[:, c]  # put the component values back into their spatial positions
+        component_image = full_image.reshape(height, width)
+    
         
         # apply guided filter (self-guided)
         filtered_image = cv2.ximgproc.guidedFilter(
@@ -267,7 +270,7 @@ def guided_filter_embedding(embedding_2d, height, width, radius=8, eps=0.01):
         )
         
         # flatten back to 1D
-        filtered[:, c] = filtered_image.flatten()
+        filtered[:, c] = filtered_image.flatten()[mask]  # only keep the values for the masked pixels
     
     return filtered
 
@@ -1013,7 +1016,7 @@ def identify_matrix_cluster(
     if best_score < min_corner_fraction:
         print(f"  No cluster cleared the threshold ({min_corner_fraction:.0%}). "
               f"Best was cluster {best_cluster} at {best_score:.1%}.")
-        return None
+        return best_cluster
 
     print(f"Matrix cluster identified: {best_cluster} "
           f"({best_score:.1%} of its pixels are in the top-left corner)")
@@ -1126,9 +1129,9 @@ def plot_spatial_map(spatial_map: np.ndarray,
     tick_labels = ["Background"] 
     for cl in unique_clusters:
         if matrix_cluster_id is not None and cl == matrix_cluster_id:
-            tick_labels.append(f"{cl} (Matrix)")
+            tick_labels.append(f"{cl+1} (Matrix)")
         else: 
-            tick_labels.append(f"{cl}")
+            tick_labels.append(f"{cl+1}")  
 
     tick_positions = np.arange(n_actual + 1)
     cbar = plt.colorbar(image, ax=ax, ticks=tick_positions)
@@ -1480,12 +1483,16 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
 
 
     if params.get("filtering") == "guided":
+        height, width = original_shape
         embedding = guided_filter_embedding(
-            embedding,
-            pixel_graph,
-            alpha=params.get("guided_filter_alpha", 0.5),
-            run_folder=run_folder
+            embedding, 
+            height=height, 
+            width=width,
+            mask=mask,
+            radius=8,   
+            eps=0.01
         )
+
     # clustering
     if params["clustering"] == "kmeans":
         labels = kmeans_clustering(

@@ -392,7 +392,7 @@ def identify_matrix_peaks(
     ).reset_index(drop=True)
     results_df["rank"] = results_df.index + 1
 
-    print(f"[identify_matrix_peaks] Evaluating {len(candidate_mz)} OMP peaks")
+    print(f"[identify_matrix_peaks] Evaluating {len(candidate_mz)} peaks")
     print(results_df[["rank", "mz", "ratio"]].head(60).to_string())
 
     csv_path = os.path.join(run_folder, "matrix_peak_candidates.csv")
@@ -431,12 +431,12 @@ def identify_matrix_peaks(
     ion_image_folder = os.path.join(run_folder, "matrix_peak_ion_images")
     os.makedirs(ion_image_folder, exist_ok=True)
 
-    # get the x,y pixel coordinates of the matrix zarr pixels
-    m_x = m_adata.obs["x"].astype(int).values
-    m_y = m_adata.obs["y"].astype(int).values
-    # work out the spatial dimensions of the matrix block
-    m_width  = m_x.max() + 1
-    m_height = m_y.max() + 1
+    # # get the x,y pixel coordinates of the matrix zarr pixels
+    # m_x = m_adata.obs["x"].astype(int).values
+    # m_y = m_adata.obs["y"].astype(int).values
+    # # work out the spatial dimensions of the matrix block
+    # m_width  = m_x.max() + 1
+    # m_height = m_y.max() + 1
 
 
     n_to_plot = min(top_n_images, len(results_df))
@@ -447,20 +447,26 @@ def identify_matrix_peaks(
 
     # load X_matrix only here, only for ion image generation
     # we only need the top N columns so extract those only
-    X_matrix = m_adata.X
-    if scipy.sparse.issparse(X_matrix):
-        # extract only the columns we need — much cheaper than toarray() on full matrix
-        # top_col_idxs = [
-        #     np.argmin(np.abs(mz_axis - results_df.iloc[rank]["mz"]))
-        #     for rank in range(top_n_images)
-        # ]
-        X_matrix_subset = np.array(X_matrix[:, top_col_idxs].todense())  # (n_pixels, top_n)
+    if matrix_zarr_path is not None:
+        # matrix zarr exists — load from m_adata
+        X_matrix = m_adata.X
+        if scipy.sparse.issparse(X_matrix):
+            X_matrix_subset = np.array(X_matrix[:, top_col_idxs].todense())
+        else:
+            X_matrix_subset = X_matrix[:, top_col_idxs]
     else:
-        # top_col_idxs = [
-        #     np.argmin(np.abs(mz_axis - results_df.iloc[rank]["mz"]))
-        #     for rank in range(top_n_images)
-        # ]
-        X_matrix_subset = X_matrix[:, top_col_idxs]  # (n_pixels, top_n)
+        # no matrix zarr — load corner pixels from first sample zarr
+        s_adata_corner = list(sd.read_zarr(sample_zarr_paths[0]).tables.values())[0]
+        x_all_c = s_adata_corner.obs["x"].astype(int).values
+        y_all_c = s_adata_corner.obs["y"].astype(int).values
+        corner_mask = (x_all_c < x_threshold) & (y_all_c < y_threshold)
+
+        X_corner = s_adata_corner.X
+        if scipy.sparse.issparse(X_corner):
+            X_matrix_subset = np.array(X_corner[corner_mask][:, top_col_idxs].todense())
+        else:
+            X_matrix_subset = X_corner[corner_mask][:, top_col_idxs]
+
 
     first_sample_avg = sample_avgs[0]
     first_sample_name = os.path.basename(sample_zarr_paths[0]).replace(".zarr", "")
@@ -1330,11 +1336,11 @@ def run_preprocessing(params, run_folder):
         AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
 
         if params.get("filtering") == "median":
-            avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
+            avg_intensity = median_filter_spectrum(filtered_avg_intensity, kernel_size=5)
         elif params.get("filtering") == "savgol":
-            avg_intensity = savgol_filter_spectrum(avg_intensity, window_length=11, polyorder=3)
+            avg_intensity = savgol_filter_spectrum(filtered_avg_intensity, window_length=11, polyorder=3)
         elif params.get("filtering") == "gaussian":
-            avg_intensity = gaussian_filter_spectrum(avg_intensity, sigma=1.0)
+            avg_intensity = gaussian_filter_spectrum(filtered_avg_intensity, sigma=1.0)
 
         if params["peak_method"] == "OMP":
             peak_mz, _ = peak_detection_omp(
