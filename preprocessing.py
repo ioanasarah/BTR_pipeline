@@ -1213,7 +1213,8 @@ def preprocess_single_sample(zarr_path: str,
 
     # DEFINE PEAK DETECTION
     if params["peak_method"] == "OMP":
-        peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
+        sensitive_ref = compute_sensitive_reference(spatial_data, mz, top_percentile=0.95)
+        peak_mz, _ = peak_detection_omp(mz, sensitive_ref, run_folder,
                                          non_zero_coefs=params["omp_coefs"])
      
     else:
