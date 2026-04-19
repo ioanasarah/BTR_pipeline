@@ -28,7 +28,7 @@ import scipy.sparse
 # run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
 # run_folder = r"C:\Users\i6338212\data\results\hippocampus_PC\OMP_spca10_kmeans4_smoothing\hippocampus_OMP_spca10_kmeans4_smoothing"
 # run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP1000_pca10_kmeans5\DHB_060326_DHB_Slide_11_50_um_OMP1000_pca10_kmeans5"
-run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_kmeans5\hippocampus_OMP_pca10_kmeans5"
+run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_hierarchical4_label_matrix_smoothing\hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
 
 
 # For raw spectrum deep dive — list of zarr paths to load

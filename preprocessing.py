@@ -930,6 +930,17 @@ def no_matrix_peaks(avg_intensity: np.ndarray,
     return suppressed
     
 
+def compute_sensitive_reference(data, mz, top_percentile=0.95):
+    X = data.X
+    if scipy.sparse.issparse(X):
+        X = X.toarray()
+    
+    # 95th percentile across pixels at each m/z
+    # a peak that appears in only 5% of pixels will still show up
+    reference = np.percentile(X, top_percentile * 100, axis=0)
+    return reference
+
+
 def peak_detection_omp(mz, 
         avg_intensity,
         run_folder, 
@@ -1208,9 +1219,14 @@ def preprocess_single_sample(zarr_path: str,
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
 
-    peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
+    # peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
 
     if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
+        print(f"[preprocess_single_sample] Applying filter_matrix_peaks with ratio threshold {params['matrix_ratio_threshold']}...")
+        
+        # this technically only runs for liver data cause i shouldnt have atrix.zarr for anything else
+        
+        # this is the one that actually removes the peaks!!!
         peak_mz, removed = filter_matrix_peaks(
             peak_mz,
             matrix_peaks_df,
@@ -1343,8 +1359,9 @@ def run_preprocessing(params, run_folder):
             avg_intensity = gaussian_filter_spectrum(filtered_avg_intensity, sigma=1.0)
 
         if params["peak_method"] == "OMP":
+            sensitive_ref = compute_sensitive_reference(spatial_data, mz, top_percentile=0.95)
             peak_mz, _ = peak_detection_omp(
-                mz, filtered_avg_intensity, run_folder,
+                mz, sensitive_ref, run_folder,
                 non_zero_coefs=params["omp_coefs"]
             )
         else:
@@ -1358,6 +1375,7 @@ def run_preprocessing(params, run_folder):
         matrix_zarr_path = params.get("matrix_zarr_path")
         # if matrix_zarr_path or params.get("matrix_ratio_threshold"):
         
+        # only makes ion images doesnt actually remove peaks !
         matrix_peaks_df = identify_matrix_peaks(
                 # matrix_zarr_path=matrix_zarr_path,
                 corner_fraction=0.2,
@@ -1367,7 +1385,7 @@ def run_preprocessing(params, run_folder):
                 matrix_zarr_path=matrix_zarr_path,
                 top_n_images=20
             )
-        print(matrix_peaks_df)
+        # print(matrix_peaks_df)
         # if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
         #     peak_mz, removed = filter_matrix_peaks(
         #         peak_mz,
