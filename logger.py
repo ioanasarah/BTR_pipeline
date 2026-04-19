@@ -102,7 +102,8 @@ def run_pipeline(params: dict):
             results_folder,
             f"{params['tissue']}_{params['computer']}",
             generate_method_name(params),
-            generate_run_name(params)
+            generate_run_name(params), 
+            "newOMP"
         )
     os.makedirs(run_folder, exist_ok=True)
 

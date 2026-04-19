@@ -930,15 +930,43 @@ def no_matrix_peaks(avg_intensity: np.ndarray,
     return suppressed
     
 
-def compute_sensitive_reference(data, mz, top_percentile=0.95):
-    X = data.X
-    if scipy.sparse.issparse(X):
-        X = X.toarray()
+def compute_sensitive_reference(data, mz, top_percentile=0.95, chunk_size=5000):
+    """
+    Compute a per-m/z percentile reference spectrum without loading the 
+    full dense matrix into memory.
     
-    # 95th percentile across pixels at each m/z
-    # a peak that appears in only 5% of pixels will still show up
-    reference = np.percentile(X, top_percentile * 100, axis=0)
-    return reference
+    Processes the m/z axis in chunks of chunk_size columns at a time,
+    converting only that slice to dense. Memory usage at any point is:
+        n_pixels × chunk_size × 8 bytes
+    e.g. 179,389 pixels × 5,000 chunks × 8 bytes ≈ 7 GB  (manageable)
+    vs   179,389 pixels × 460,517 full  × 8 bytes ≈ 616 GB (your error)
+    """
+    X = data.X
+    n_pixels, n_mz = X.shape
+    percentile_spectrum = np.zeros(n_mz, dtype=np.float32)
+    
+    print(f"[sensitive_ref] Computing {top_percentile*100:.0f}th percentile "
+          f"over {n_pixels} pixels × {n_mz} m/z bins in chunks of {chunk_size}...")
+
+    for start in range(0, n_mz, chunk_size):
+        end = min(start + chunk_size, n_mz)
+
+        # extract only this slice of m/z columns
+        chunk = X[:, start:end]
+        if scipy.sparse.issparse(chunk):
+            chunk = chunk.toarray()  # dense only for this chunk
+
+        # percentile across pixels (axis=0) for each m/z in the chunk
+        percentile_spectrum[start:end] = np.percentile(
+            chunk, top_percentile * 100, axis=0
+        ).astype(np.float32)
+
+        if start % 50000 == 0:
+            print(f"  [{start}/{n_mz}] m/z bins processed...")
+
+    print(f"[sensitive_ref] Done. Non-zero bins: "
+          f"{np.sum(percentile_spectrum > 0)}/{n_mz}")
+    return percentile_spectrum
 
 
 def peak_detection_omp(mz, 
@@ -1212,11 +1240,13 @@ def preprocess_single_sample(zarr_path: str,
         avg_intensity = gaussian_filter_spectrum(avg_intensity, sigma=1.0)
 
     # DEFINE PEAK DETECTION
-    if params["peak_method"] == "OMP":
-        sensitive_ref = compute_sensitive_reference(spatial_data, mz, top_percentile=0.95)
+    if params["peak_method"] == "OMP_advanced":
+        sensitive_ref = compute_sensitive_reference(data, mz, top_percentile=0.95)
         peak_mz, _ = peak_detection_omp(mz, sensitive_ref, run_folder,
                                          non_zero_coefs=params["omp_coefs"])
-     
+    elif params["peak_method"] == "OMP":
+        peak_mz, _ = peak_detection_omp(mz, avg_intensity, run_folder,
+                                         non_zero_coefs=params["omp_coefs"])
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
 
@@ -1359,10 +1389,15 @@ def run_preprocessing(params, run_folder):
         elif params.get("filtering") == "gaussian":
             avg_intensity = gaussian_filter_spectrum(filtered_avg_intensity, sigma=1.0)
 
-        if params["peak_method"] == "OMP":
-            sensitive_ref = compute_sensitive_reference(spatial_data, mz, top_percentile=0.95)
+        if params["peak_method"] == "OMP_advanced":
+            sensitive_ref = compute_sensitive_reference(AnnData, mz, top_percentile=0.95)
             peak_mz, _ = peak_detection_omp(
                 mz, sensitive_ref, run_folder,
+                non_zero_coefs=params["omp_coefs"]
+            )
+        elif params["peak_method"] == "OMP":
+            peak_mz, _ = peak_detection_omp(
+                mz, filtered_avg_intensity, run_folder,
                 non_zero_coefs=params["omp_coefs"]
             )
         else:
