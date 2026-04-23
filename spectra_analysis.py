@@ -16,50 +16,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import plotly.express as px
 from plotly.subplots import make_subplots
 import spatialdata as sd
 import scipy.sparse
-
-
-# ── CONFIG ────────────────────────────────────────────────────────────────────
-# Point this at any run folder — mosaic or single sample
-# run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_spca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_spca10_kmeans4_fixed"
-
-# run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
-# run_folder = r"C:\Users\i6338212\data\results\hippocampus_PC\OMP_spca10_kmeans4_smoothing\hippocampus_OMP_spca10_kmeans4_smoothing"
-# run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP1000_pca10_kmeans5\DHB_060326_DHB_Slide_11_50_um_OMP1000_pca10_kmeans5"
-run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_hierarchical4_label_matrix_smoothing\hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
-
-
-# For raw spectrum deep dive — list of zarr paths to load
-# For mosaic: list all 10 sample zarrs
-# For single sample: just one zarr path
-# zarr_paths = [
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 pra.zarr",
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\10 pra.zarr",
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\21 pra.zarr",
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\28 pra.zarr",
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\49 pra.zarr",
-
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\10 1hnr.zarr",
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\21 1hnr.zarr",
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\28 1hnr.zarr",
-#     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\49 1hnr.zarr"
-    
-   
-# ]
-zarr_paths = [
-    # r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr"
-    r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr"
-]
-
-# set to True if this is a mosaic run folder, False for single sample
-is_mosaic = False
-
-# output folder for plots — defaults to run_folder/cluster_spectra
-output_folder = os.path.join(run_folder, "cluster_analysis")
-# ──────────────────────────────────────────────────────────────────────────────
 
 
 def load_run_results(run_folder: str) -> dict:
@@ -171,17 +131,18 @@ def plot_preprocessed_spectra(avg_spectra: dict,
 
     # one plot per cluster
     for cid, avg in avg_spectra.items():
-        fig, ax = plt.subplots(figsize=(14, 4))
+        figax, ax = plt.subplots(figsize=(14, 4))
         colour = colours[cid % len(colours)]
-
+        
         ax.bar(filtered_mz, avg, width=0.5, color=colour, alpha=0.8)
         ax.set_xlabel("m/z", fontsize=12)
         ax.set_ylabel("Mean TIC-normalised intensity", fontsize=12)
         ax.set_title(f"Cluster {cid+1} — average spectrum "
-                     f"({len(filtered_mz)} peaks)", fontsize=14)
+        f"({len(filtered_mz)} peaks)", fontsize=14)
         ax.set_xlim(filtered_mz.min() - 10, filtered_mz.max() + 10)
+        
 
-        # annotate top 5 peaks
+                # annotate top 5 peaks
         top5_idx = np.argsort(avg)[-5:][::-1]
         for idx in top5_idx:
             ax.annotate(
@@ -200,6 +161,47 @@ def plot_preprocessed_spectra(avg_spectra: dict,
         plt.savefig(save_path, dpi=150, bbox_inches="tight")
         plt.close()
         print(f"  Saved: {save_path}")
+
+
+        fig = go.Figure()
+
+        fig.add_trace(go.Bar(
+            x=filtered_mz,
+            y=avg,
+            # mode="lines",
+            name=f"Cluster {cid+1}",
+            # line=dict(color=colour, width=1),
+            hovertemplate="m/z: %{x:.4f}<br>intensity: %{y:.4f}<extra></extra>"
+        ))
+
+        # poetry run python spectra_analysis.py
+         
+        fig.update_layout(
+            title=f"Cluster {cid+1} — average spectrum ",
+            xaxis_title="m/z",
+            yaxis_title="Mean TIC-normalised intensity",
+            height=500,
+            width=1400,
+            hovermode="x unified"
+        )
+
+        
+        # annotate top 5 peaks with Plotly
+        fig.add_trace(go.Scatter(
+            x=filtered_mz[top5_idx],
+            y=avg[top5_idx],
+            mode="markers+text",
+            name="Top 5 peaks",
+            marker=dict(color="black", size=6, symbol="triangle-up"),
+            text=[f"{filtered_mz[i]:.2f}" for i in top5_idx],
+            textposition="top center",
+            textfont=dict(size=9),
+            hovertemplate="m/z: %{x:.4f}<br>intensity: %{y:.4f}<extra></extra>"
+        ))
+        save_path = os.path.join(output_folder,
+                                  f"cluster_{cid+1}_preprocessed_spectrum.html")
+        fig.write_html(save_path)
+        print(f"  Saved interactive plot: {save_path}")
 
     # combined overview — all clusters in one figure
     fig, axes = plt.subplots(n_clusters, 1,
@@ -576,8 +578,46 @@ def run_cluster_spectrum_analysis(run_folder: str,
     print(f"\n[main] All done. Results saved to {output_folder}")
 
 
-# ── ENTRY POINT ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    # Point this at any run folder - mosaic or single sample
+    # run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_spca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_spca10_kmeans4_fixed"
+
+    # run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
+    # run_folder = r"C:\Users\i6338212\data\results\hippocampus_PC\OMP_spca10_kmeans4_smoothing\hippocampus_OMP_spca10_kmeans4_smoothing"
+    # run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP1000_pca10_kmeans5\DHB_060326_DHB_Slide_11_50_um_OMP1000_pca10_kmeans5"
+    # run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_hierarchical4_label_matrix_smoothing\hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
+    run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\MAD_pca10_kmeans4_smoothing\hippocampus_MAD_pca10_kmeans4_smoothing"
+
+    # For raw spectrum deep dive — list of zarr paths to load
+    # For mosaic: list all 10 sample zarrs
+    # For single sample: just one zarr path
+    # zarr_paths = [
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 pra.zarr",
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\10 pra.zarr",
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\21 pra.zarr",
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\28 pra.zarr",
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\49 pra.zarr",
+
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\10 1hnr.zarr",
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\21 1hnr.zarr",
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\28 1hnr.zarr",
+    #     r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\49 1hnr.zarr"
+        
+    
+    # ]
+    zarr_paths = [
+        # r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr"
+        r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr"
+    ]
+
+    # set to True if this is a mosaic run folder, False for single sample
+    is_mosaic = False
+
+    # output folder for plots — defaults to run_folder/cluster_spectra
+    output_folder = os.path.join(run_folder, "cluster_analysis")
+    # ──────────────────────────────────────────────────────────────────────────────
+
     run_cluster_spectrum_analysis(
         run_folder=run_folder,
         zarr_paths=zarr_paths,
@@ -585,3 +625,67 @@ if __name__ == "__main__":
         output_folder=output_folder
     )
 
+
+
+def run_cluster_spectrum_analysis_pipeline(params: dict, 
+                                           run_folder: str) -> None:
+
+    os.makedirs(run_folder, exist_ok=True)
+
+    output_folder = os.path.join(run_folder, "cluster_analysis")
+
+    is_mosaic = params["batch_mode"]
+    # load pipeline outputs
+    results = load_run_results(run_folder)
+    labels = results["labels"]
+    mask = results["mask"]
+    original_shape = results["original_shape"]
+
+    # get sample offset for mosaic (where tissue starts below matrix block)
+    sample_offset = 0
+    offset_path = os.path.join(run_folder, "sample_offset.npy")
+    if os.path.exists(offset_path):
+        sample_offset = int(np.load(offset_path)[0])
+        print(f"[spectra_analysis] Mosaic sample offset: {sample_offset} rows")
+
+    # PREPROCESSED SPECTRA (fast)
+    if "matrix_raw" in results and "filtered_mz" in results:
+        print("\n[spectra_analysis] Computing cluster averages on preprocessed matrix...")
+        matrix_raw  = results["matrix_raw"]   # (n_nonzero_pixels, n_peaks)
+        filtered_mz = results["filtered_mz"]
+
+        avg_preprocessed = compute_cluster_average_spectra(matrix_raw, labels)
+
+        print("[spectra_analysis] Plotting preprocessed spectra...")
+        plot_preprocessed_spectra(
+            avg_preprocessed,
+            filtered_mz,
+            os.path.join(output_folder, "preprocessed")
+        )
+    else:
+        print("[spectra_analysis] WARNING: matrix_raw.npy or filtered_mz_values.csv not "
+              "found — skipping preprocessed spectra.")
+
+    # ── RAW SPECTRA (deep dive) ───────────────────────────────────────────────
+    if zarr_paths:
+        print("\n[spectra_analysis] Loading raw spectra from zarr files "
+              "(this may take a few minutes)...")
+        mz_axis, avg_raw = load_raw_average_spectra_from_zarrs(
+            zarr_paths=params["zarr_path"],
+            labels=labels,
+            mask=mask,
+            original_shape=original_shape,
+            is_mosaic=is_mosaic,
+            sample_offset=sample_offset
+        )
+
+        print("[spectra_analysis] Plotting raw interactive spectra...")
+        plot_raw_spectra_interactive(
+            mz_axis,
+            avg_raw,
+            os.path.join(output_folder, "raw")
+        )
+    else:
+        print("[spectra_analysis] No zarr paths provided — skipping raw spectra.")
+
+    print(f"\n[spectra_analysis] All done. Results saved to {run_folder}")

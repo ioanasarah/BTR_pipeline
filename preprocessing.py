@@ -512,27 +512,27 @@ def identify_matrix_peaks(
     print(f"[identify_matrix_peaks] Ion images saved to {ion_image_folder}")
     return results_df
 
-def filter_nonphysical_peaks(peak_mz: np.ndarray, mz_cutoff: float = 600.0,
-                              tol: float = 0.1) -> np.ndarray:
-    """
-    Remove peaks whose m/z fractional part is suspiciously non-integer.
-    Real MALDI ions have fractional m/z parts near 0 (singly charged).
-    Doubly-charged / ghost OMP peaks cluster around 0.3-0.9.
-    """
-    frac = peak_mz - np.floor(peak_mz)
-    is_low_mz = peak_mz < mz_cutoff
-    is_ghost = (frac >= tol) & (frac <= (1.0 - tol))
+# def filter_nonphysical_peaks(peak_mz: np.ndarray, mz_cutoff: float = 600.0,
+#                               tol: float = 0.1) -> np.ndarray:
+#     """
+#     Remove peaks whose m/z fractional part is suspiciously non-integer.
+#     Real MALDI ions have fractional m/z parts near 0 (singly charged).
+#     Doubly-charged / ghost OMP peaks cluster around 0.3-0.9.
+#     """
+#     frac = peak_mz - np.floor(peak_mz)
+#     is_low_mz = peak_mz < mz_cutoff
+#     is_ghost = (frac >= tol) & (frac <= (1.0 - tol))
 
-    remove = is_low_mz & is_ghost
-    keep = ~remove
-    # # keep peaks where fractional part is within tol of 0 or 1
-    # keep = (frac < tol) | (frac > (1.0 - tol))
-    # n_removed = (~keep).sum()
-    print(f"[filter_nonphysical] Removed {remove.sum()} ghost peaks (m/z < {mz_cutoff})")
-    return peak_mz[keep]
+#     remove = is_low_mz & is_ghost
+#     keep = ~remove
+#     # # keep peaks where fractional part is within tol of 0 or 1
+#     # keep = (frac < tol) | (frac > (1.0 - tol))
+#     # n_removed = (~keep).sum()
+#     print(f"[filter_nonphysical] Removed {remove.sum()} ghost peaks (m/z < {mz_cutoff})")
+#     return peak_mz[keep]
 
 
-def filter_matrix_peaks(peak_mz: np.ndarray,
+def remove_matrix_peaks(peak_mz: np.ndarray,
                          matrix_peaks_df: pd.DataFrame,
                          ratio_threshold: float,
                          tol: float = 0.1) -> tuple:
@@ -552,12 +552,9 @@ def filter_matrix_peaks(peak_mz: np.ndarray,
         else:
             keep.append(mz)
 
-    print(f"[filter_matrix_peaks] Removed {len(removed)} matrix peaks, "
+    print(f"[remove_matrix_peaks] Removed {len(removed)} matrix peaks, "
           f"kept {len(keep)} peaks (threshold={ratio_threshold}x)")
     return np.array(keep), np.array(removed)
-
-
-
 
 
 def stack_matrix_spatially(sample_matrix_3d: np.ndarray,
@@ -1001,7 +998,8 @@ def peak_detection_omp(mz,
 
 
     # starts OMP peak detection using the candidate peaks as the dictionary
-
+    print(f"Fitting OMP model..."
+          f"(this is slow for large datasets)")
     X = np.zeros((len(mz), len(candidate_mz))) # initialize a matrix X with rows corresponding to m/z values and columns corresponding to candidate peaks
     for i, cm in enumerate(candidate_mz):
         X[:, i] = np.exp(-0.5 * ((mz - cm) / window_size) ** 2)
@@ -1253,12 +1251,12 @@ def preprocess_single_sample(zarr_path: str,
     # peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
 
     if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
-        print(f"[preprocess_single_sample] Applying filter_matrix_peaks with ratio threshold {params['matrix_ratio_threshold']}...")
+        print(f"[preprocess_single_sample] Applying remove_matrix_peaks with ratio threshold {params['matrix_ratio_threshold']}...")
         
-        # this technically only runs for liver data cause i shouldnt have atrix.zarr for anything else
+        # this technically only runs for liver data cause i shouldnt have matrix.zarr for anything else
         
         # this is the one that actually removes the peaks!!!
-        peak_mz, removed = filter_matrix_peaks(
+        peak_mz, removed = remove_matrix_peaks(
             peak_mz,
             matrix_peaks_df,
             ratio_threshold=params["matrix_ratio_threshold"],
@@ -1383,11 +1381,11 @@ def run_preprocessing(params, run_folder):
         AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
 
         if params.get("filtering") == "median":
-            avg_intensity = median_filter_spectrum(filtered_avg_intensity, kernel_size=5)
+            filtered_avg_intensity = median_filter_spectrum(filtered_avg_intensity, kernel_size=5)
         elif params.get("filtering") == "savgol":
-            avg_intensity = savgol_filter_spectrum(filtered_avg_intensity, window_length=11, polyorder=3)
+            filtered_avg_intensity = savgol_filter_spectrum(filtered_avg_intensity, window_length=11, polyorder=3)
         elif params.get("filtering") == "gaussian":
-            avg_intensity = gaussian_filter_spectrum(filtered_avg_intensity, sigma=1.0)
+            filtered_avg_intensity = gaussian_filter_spectrum(filtered_avg_intensity, sigma=1.0)
 
         if params["peak_method"] == "OMP_advanced":
             sensitive_ref = compute_sensitive_reference(AnnData, mz, top_percentile=0.95)
@@ -1423,7 +1421,7 @@ def run_preprocessing(params, run_folder):
             )
         # print(matrix_peaks_df)
         # if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
-        #     peak_mz, removed = filter_matrix_peaks(
+        #     peak_mz, removed = remove_matrix_peaks(
         #         peak_mz,
         #         matrix_peaks_df,
         #         ratio_threshold=params["matrix_ratio_threshold"],

@@ -17,8 +17,10 @@ from matplotlib.colors import ListedColormap
 import plotly.express as px
 import plotly.graph_objects as go
 import sklearn 
-from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, HDBSCAN
+from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, HDBSCAN, AgglomerativeClustering
 from scipy.ndimage import uniform_filter 
+from scipy.sparse.linalg import eigsh
+from sklearn.preprocessing import normalize
 from scipy.stats import f_oneway
 from scipy.spatial.distance import cdist
 from scipy.linalg import eigh
@@ -738,6 +740,66 @@ def spatial_pca_sparse(X: np.ndarray,
     return embedding, explained
 
 
+# def spectral_clustering_spatial(matrix: np.ndarray,
+#                                  W: csr_matrix,       
+#                                  n_clusters: int,
+#                                  n_components: int = None,
+#                                  random_state: int = 42,
+#                                  max_samples: int = 10_000) -> pd.Series:
+#     """
+#     Spectral clustering using the pre-built spatial pixel graph as affinity,
+#     rather than computing a new kNN graph from feature distances.
+    
+#     This means cluster boundaries follow spatial connectivity in the tissue
+#     rather than feature-space similarity alone.
+#     """
+
+#     print("Performing spatially-aware Spectral Clustering...")
+    
+#     print(f"W shape: {W.shape}")           # should be (n_pixels, n_pixels)
+#     print(f"matrix shape: {matrix.shape}") # should be (n_pixels, n_components)
+#     assert W.shape[0] == matrix.shape[0], \
+#         f"Graph has {W.shape[0]} nodes but matrix has {matrix.shape[0]} rows"
+    
+    
+#     n = matrix.shape[0]
+#     n_components = n_components or n_clusters
+
+#     # combine spatial graph with feature similarity
+#     # option 1: use spatial graph directly as affinity
+#     A = W.astype(np.float64)
+
+#     # option 2: weight edges by feature similarity too (stronger)
+#     # for each edge (i,j) in W, weight by exp(-||x_i - x_j||^2 / sigma^2)
+#     # this keeps spatial structure but also respects biochemical similarity
+#     rows, cols = W.nonzero()
+#     diffs = matrix[rows] - matrix[cols]
+#     sigma = np.median(np.linalg.norm(diffs, axis=1)) + 1e-9
+#     weights = np.exp(-np.sum(diffs**2, axis=1) / (2 * sigma**2))
+#     A = csr_matrix((weights, (rows, cols)), shape=W.shape)
+#     print(f"Built spatially-weighted affinity matrix: {A.nnz:,} edges")
+
+#     # graph Laplacian
+#     degree = np.array(A.sum(axis=1)).flatten()
+#     D_inv_sqrt = sp.diags(1.0 / np.sqrt(np.where(degree > 0, degree, 1.0)))
+#     L_sym = sp.eye(n) - D_inv_sqrt @ A @ D_inv_sqrt  # normalised Laplacian
+
+#     # eigendecomposition — only n_components eigenvectors needed
+#     print(f"Computing {n_components} eigenvectors...")
+#     eigenvalues, eigenvectors = eigsh(L_sym, k=n_components, which='SM')
+#     # SM = smallest eigenvalues — these capture cluster structure
+
+#     # normalise rows of eigenvector matrix
+#     embedding = normalize(eigenvectors, norm='l2')
+
+#     # k-means on eigenvectors
+#     km = KMeans(n_clusters=n_clusters, n_init=10, random_state=random_state)
+#     labels = km.fit_predict(embedding)
+
+#     print(f"Spatially-aware Spectral Clustering complete.")
+#     print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
+#     return pd.Series(labels)
+
 def save_spatial_pca_results(embedding: np.ndarray,
                               labels: pd.Series,
                               save_path: str) -> None:
@@ -927,20 +989,50 @@ def kmeans_clustering(matrix: np.ndarray,
 def spectral_clustering(matrix: np.ndarray, 
                       n_clusters: int,
                       random_state: Optional[int]=None,
+                      max_samples: int = 10_000,
                       n_init: int = 10) -> pd.Series:
 
-    sc = SpectralClustering(
-        n_clusters=4,
-        affinity='nearest_neighbors',  # much cheaper than rbf for large data
-        n_neighbors=10,
-        assign_labels='kmeans',
-        random_state=42,
-        n_jobs=-1
-    )   
-    labels = sc.fit_predict(matrix)  # groups pixels from umap into clusters based on their similarity 
-    print(f"KMeans complete. Found {n_clusters} clusters.")
+    print("Performing Spectral Clustering...")
+    n = matrix.shape[0]
+
+    if n > max_samples:
+        print(f"Subsampling {max_samples} pixels for spectral clustering "
+              f"(dataset has {n} pixels)...")
+        idx = np.random.choice(n, size=max_samples, replace=False)
+        sample = matrix[idx]
+
+        sc = SpectralClustering(
+            n_clusters=n_clusters,
+            affinity='nearest_neighbors',  # much cheaper than rbf for large data
+            n_neighbors=10,
+            assign_labels='kmeans',
+            random_state=random_state if random_state is not None else 42,
+            n_jobs=-1
+        )   
+        sample_labels = sc.fit_predict(sample)
+        centroids = np.array(
+            [sample[sample_labels == k].mean(axis=0) 
+             for k in range(n_clusters)])
+        dists = cdist(matrix, centroids, metric='euclidean')
+        labels = np.argmin(dists, axis=1)
+
+    else:
+        # sample = matrix
+        # idx = np.arange(n)
+        sc = SpectralClustering(
+            n_clusters=n_clusters,
+            affinity='nearest_neighbors',
+            n_neighbors=10,
+            assign_labels='kmeans',
+            random_state=random_state if random_state is not None else 42,
+            n_jobs=-1
+        )
+
+        labels = sc.fit_predict(matrix)  # groups pixels from umap into clusters based on their similarity 
+    
+    print(f"Spectral clustering complete. Found {n_clusters} clusters.")
     print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
-    print(f"KMeans clustering took {time.perf_counter() - start_time:.2f} seconds")
+    print(f"Spectral clustering took {time.perf_counter() - start_time:.2f} seconds")
     return pd.Series(labels)
 
 
@@ -962,6 +1054,50 @@ def hdbscan_clustering(matrix: np.ndarray,
     print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
     print(f"HDBSCAN clustering took {time.perf_counter() - start_time:.2f} seconds")
     return pd.Series(labels)
+
+def perform_agg_hierarchical_clustering(matrix: np.ndarray,
+                                    n_clusters: int,
+                                    linkage: str = 'ward',
+                                    metric: str='euclidean',
+                                    max_samples: int = 50000) -> pd.Series:
+    
+    """
+    If the dataset exceeds max_samples, fits on a random subsample
+    then assigns remaining pixels via nearest centroid.
+    """
+    import warnings
+    n = matrix.shape[0]
+    print(f"Performing Hierarchical Clustering (linkage={linkage}, n_clusters={n_clusters})...")
+ 
+    if n > max_samples:
+        warnings.warn(f"Dataset has {n} pixels, which exceeds max_samples={max_samples}. "
+                      f"Subsampling for hierarchical clustering fit, then assigning remaining pixels to nearest centroid.")
+        idx = np.random.choice(n, size=max_samples, replace=False)
+        sample = matrix[idx]
+
+        model = AgglomerativeClustering(n_clusters=n_clusters, 
+                                        metric=metric, 
+                                        linkage=linkage)
+        sample_labels = model.fit_predict(sample)
+
+        # build controids for subsample, assign all pixels to nearest centroid
+        centroids = np.array(
+            [sample[sample_labels == k].mean(axis=0) 
+             for k in range(n_clusters)])
+        dists = cdist(matrix, centroids, metric=metric)
+        labels = np.argmin(dists, axis=1)
+    else:
+        model = AgglomerativeClustering(n_clusters=n_clusters,
+                                        metric=metric, 
+                                        linkage=linkage)
+        labels = model.fit_predict(matrix)
+    
+    print(f"Agglomerative Clustering complete. Found {n_clusters} clusters.")
+    print(f"Cluster sizes: {pd.Series(labels).value_counts().sort_index().to_dict()}")
+    return pd.Series(labels)
+
+
+
 
 # run_folder = os.path.join(
 #         results_folder,
@@ -1023,47 +1159,82 @@ def identify_matrix_cluster(
     return int(best_cluster)
 
 
-def label_matrix_clusters(
-        labels: np.ndarray,
-        matrix_2d: np.ndarray,   # the flat (n_pixels, n_features) normalised matrix
-        n_sentinel: int,
-        sentinel_ratio_threshold: float = 2.0
-) -> np.ndarray:
+def compute_matrix_cluster_peaks(matrix_flat: np.ndarray,
+                                 labels: np.ndarray,
+                                 matrix_cluster: int, 
+                                 filtered_mz: np.ndarray, 
+                                 run_folder: str) -> pd.DataFrame:
     """
-    Any cluster whose mean sentinel signal is sentinel_ratio_threshold times
-    higher than the mean biological signal gets relabelled as -1 (matrix).
-
-    sentinel_ratio_threshold: how much higher sentinel columns must be 
-    relative to biological columns to call a cluster 'matrix'.
-    A value of 2.0 means sentinel mean must be 2× the biological mean.
+    Compute the average spectrum for each cluster.
+    Returns dict: {cluster_id: avg_spectrum array}
     """
-    n_bio = matrix_2d.shape[1] - n_sentinel
+    # unique_clusters = np.unique(labels)
+    avg_spectra = {}
+    mask = labels == matrix_cluster
+    cluster_pixels = matrix_flat[mask]
+    avg_spectra[matrix_cluster] = cluster_pixels.mean(axis=0)
+    print(f"  Cluster {matrix_cluster} (matrix): {cluster_pixels.shape[0]} pixels")
 
-    bio_cols      = matrix_2d[:, :n_bio]       # biological features
-    sentinel_cols = matrix_2d[:, n_bio:]       # matrix sentinel features
+    # get top 20 peaks from avg spectrum and save as csv
+    avg_spectrum = avg_spectra[matrix_cluster]
+    top_idx = np.argsort(avg_spectrum)[-20:][::-1]
+    # mz_list = []
+    # intensity_list = []
+    for idx in top_idx:
+        mz = filtered_mz[idx]
+        intensity = avg_spectrum[idx]
+        print(f"    m/z {mz:.2f} - intensity {intensity:.2f}")
+        # top_matrix_peaks_idx = np.argsort(avg_spectrum)[-10:][::-1]
+    #  add each value to df 
+    top_matrix_peaks_df = pd.DataFrame({
+        "m/z": filtered_mz[top_idx],
+        "intensity": avg_spectrum[top_idx]
+    })
+    top_matrix_peaks_df.to_csv(f"{run_folder}\\top_peaks_matrix_cluster_{matrix_cluster}.csv", index=False)
 
-    new_labels = labels.copy()
-    unique = np.unique(labels)
-    unique = unique[unique != -1]
+    return top_matrix_peaks_df
 
-    ratios = {}
-    for cl in unique:
-        if cl == -1:
-            continue  # already noise (e.g. from HDBSCAN)
-        mask = labels == cl
-        mean_bio      = bio_cols[mask].mean()
-        mean_sentinel = sentinel_cols[mask].mean()
-        ratio = mean_sentinel / (mean_bio + 1e-9)
-        ratios[cl] = ratio
+# def label_matrix_clusters(
+#         labels: np.ndarray,
+#         matrix_2d: np.ndarray,   # the flat (n_pixels, n_features) normalised matrix
+#         n_sentinel: int,
+#         sentinel_ratio_threshold: float = 2.0
+# ) -> np.ndarray:
+#     """
+#     Any cluster whose mean sentinel signal is sentinel_ratio_threshold times
+#     higher than the mean biological signal gets relabelled as -1 (matrix).
 
-        best_cl = max(ratios, key=ratios.get)
-        if ratio >= sentinel_ratio_threshold:
-            print(f"  Cluster {cl}: sentinel/bio ratio = {ratio:.2f} → labelled MATRIX (-1)")
-            new_labels[mask] = -1
-        else:
-            print(f"  Cluster {cl}: sentinel/bio ratio = {ratio:.2f} → biological")
+#     sentinel_ratio_threshold: how much higher sentinel columns must be 
+#     relative to biological columns to call a cluster 'matrix'.
+#     A value of 2.0 means sentinel mean must be 2× the biological mean.
+#     """
+#     n_bio = matrix_2d.shape[1] - n_sentinel
 
-    return new_labels
+#     bio_cols      = matrix_2d[:, :n_bio]       # biological features
+#     sentinel_cols = matrix_2d[:, n_bio:]       # matrix sentinel features
+
+#     new_labels = labels.copy()
+#     unique = np.unique(labels)
+#     unique = unique[unique != -1]
+
+#     ratios = {}
+#     for cl in unique:
+#         if cl == -1:
+#             continue  # already noise (e.g. from HDBSCAN)
+#         mask = labels == cl
+#         mean_bio      = bio_cols[mask].mean()
+#         mean_sentinel = sentinel_cols[mask].mean()
+#         ratio = mean_sentinel / (mean_bio + 1e-9)
+#         ratios[cl] = ratio
+
+#         best_cl = max(ratios, key=ratios.get)
+#         if ratio >= sentinel_ratio_threshold:
+#             print(f"  Cluster {cl}: sentinel/bio ratio = {ratio:.2f} → labelled MATRIX (-1)")
+#             new_labels[mask] = -1
+#         else:
+#             print(f"  Cluster {cl}: sentinel/bio ratio = {ratio:.2f} → biological")
+
+#     return new_labels
 
 
 def reconstruct_spatial_map(labels:pd.Series,
@@ -1102,10 +1273,33 @@ def plot_spatial_map(spatial_map: np.ndarray,
     n_actual=len(unique_clusters)
 
 
+    # cluster_colours = [
+    #     "red", "blue", "green", "yellow", "purple",
+    #     "orange", "cyan", "magenta", "lime", "brown", 
+    #     "pink", "white", "purple"
+    # ]
+
+    # cluster_colours = [
+    #     "#eb7ce3", 
+    #     "#7caceb", 
+    #     "#569661",
+    #     "#ebc52f", 
+        # "#261c78", 
+    #     "#781c61", 
+    #     "#0c5951"
+    # ]
+
     cluster_colours = [
-        "red", "blue", "green", "yellow", "purple",
-        "orange", "cyan", "magenta", "lime", "brown", 
-        "pink", "white", "purple"
+        "#e4827d", 
+        # "#bbbc59",
+        "#781c61", 
+        "#4d9778",
+        "#f6d487",
+
+        "#4549ab",
+        "#0c5951",
+        "#4B0505",
+        "#b3e3db",
     ]
 
     # remap cluster ids to contiguous 0-based indices so colormap lines up
@@ -1144,7 +1338,7 @@ def plot_spatial_map(spatial_map: np.ndarray,
 
     plt.savefig(f"{run_folder}\\spatial_map.png", dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Spatial map figure saved to {run_folder}\\spatial_map.png")
+    print(f"Spatial map figure saved to {run_folder}\\spatial_map1.png")
 
 
 
@@ -1256,128 +1450,73 @@ def batch_correct_after_mask(X: np.ndarray,
 # normalisation: TIC
 # peak picking: baseline, smoothing, 
 
-
 if __name__ == "__main__":
     results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-    preprocessing_run_name = "xenium_laptop"
+    # preprocessing_run_name = "hippocampus_laptop"
     # reduction_name = "xenium_OMP_pca_umap10_k5_smoothing" # good segm but bg weird
-    reduction_name = "xenium_OMP_pca10_k4_3x3_smoothing" # good segm 
+    reduction_name = "hippocampus_OMP_pca10_spectral_spatial4_smoothing" # good segm 
     # reduction_name = "xenium_OMP_pca10_k4" # bad segm
-    run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
+    run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_spectral_spatial4_smoothing\hippocampus_OMP_pca10_spectral_spatial4_smoothing"
 
-    file_path = f"{run_folder}/matrix.npy"
+    # file_path = f"{run_folder}/matrix.npy"
+    # matrix_nmf, mask, original_shape, noise = load_and_preprocess_msi(
+    #     file_path=file_path,
+    #     run_folder=run_folder,
+    #     # remove_zero_pixels=True,
+    #     save_raw=f"{run_folder}\\matrix_raw.npy",
+    #     save_scaled=f"{run_folder}\\matrix_scaled.npy"
+    # )
+    # load results from previous steps to save time
+    # labels = pd.read_csv(f"{run_folder}\\pca_results.csv").iloc[:, -1]  # assuming last column is 'cluster'
+    # spatial_map = np.load(f"{run_folder}\\spatial_map_matrix_{reduction_name}.npy")
+    # matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
+    # filtered_mz = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
+
+    # mask = np.load(f"{run_folder}\\mask.npy")
+    # original_shape = np.load(f"{run_folder}\\original_shape.npy")
+    
+
     matrix_nmf, mask, original_shape, noise = load_and_preprocess_msi(
-        file_path=file_path,
+        file_path=f"{run_folder}/matrix.npy",
         run_folder=run_folder,
-        # remove_zero_pixels=True,
+        remove_zero_pixels=True,
         save_raw=f"{run_folder}\\matrix_raw.npy",
         save_scaled=f"{run_folder}\\matrix_scaled.npy"
     )
-#     folder_name = "xenium_laptop"
-#     run_folder = os.path.join(
-#         results_folder,
-#         folder_name,
-#         "xenium_OMP_spca10_k5_smoothing"
-#     )
-# #     # run_timer(stop_event)
-#     file_path = r"C:\Ioana\_uni\BTR_pipeline_code\msi_matrix_omp.npy"
-#     matrix_scaled, mask, original_shape = load_and_preprocess_msi(file_path=file_path, 
-#                                                             run_folder=run_folder,
-#                                                               remove_zero_pixels=True,
-#                                                               save_raw=f"{run_folder}\\matrix_raw.npy",
-#                                                               save_scaled=f"{run_folder}\\matrix_scaled.npy")
-    # matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
-    # mask = np.load(f"{run_folder}\\mask.npy")
-    # original_shape = mask.shape
-#     print(f"Loaded matrix with shape {original_shape}. Scaled matrix has shape {matrix_scaled.shape}")
-# #     # pca_transformed = perform_pca(matrix_scaled, n_components=10)
-# #     # save_preprocessed_matrix(pca_transformed, f"{run_folder}\\matrix_pca.npy")
+    coords = get_pixel_coords(mask, original_shape)
+    pixel_graph = build_pixel_grid_graph_sparse(coords = coords, connectivity=8)
 
-#     coords = get_pixel_coords(mask, original_shape)
-#     embedding, explained = spatial_pca_sparse(
-#             X = matrix_scaled, 
-#             coords = coords,
-#             n_components= 10,
-#             alpha = 0.5,
-#             connectivity = 4, 
-#             chunk_size= 50_000,
-#             run_folder=run_folder,
-#             start_time=start_time
-#         )
-    
+    matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
+    embedding, loadings, explained = perform_pca(
+                matrix_scaled,
+                n_components=10
+            )
+    labels = spectral_clustering_spatial_attempt(embedding, 
+                                         pixel_graph,
+                                         n_clusters=4, random_state=42)
+    # matrix_cluster_id = identify_matrix_cluster(
+    #     labels=labels.values,
+    #     spatial_map=np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_spectral_spatial4_smoothing\hippocampus_OMP_pca10_spectral_spatial4_smoothing\spatial_map_matrix_hippocampus_OMP_pca10_spectral_spatial4_smoothing.npy"),
+    #     corner_fraction=0.2,
+    #     min_corner_fraction=0.3
+    # ) 
+    #  poetry run python dimensionality_red.py
 
-# #     # read umap from csv if already done to save time
-# #     # umap_file_path = f"{run_folder}\\umap_results.csv"
-# #     # umap_transformed = pd.read_csv(umap_file_path).iloc[:, :2].values
-# #     # labels = pd.read_csv(umap_file_path).iloc[:, 2].values
-    
-   
-# #     # if os.path.exists(f"{run_folder}\\umap_results.csv"):
-# #     #     print(f"Loading UMAP results from {f"{run_folder}\\umap_results.csv"}...")
-# #     #     umap_df = pd.read_csv(f"{run_folder}\\umap_results.csv")
-# #     #     umap_transformed = umap_df.iloc[:, :2].values
-# #     #     labels = umap_df.iloc[:, 2].values
-# #     #     print("UMAP results loaded successfully.")
-# #     # else:
-# #     #     umap_transformed = perform_umap(
-# #     #         matrix_scaled, 
-# #     #         n_neighbors=15, 
-# #     #         min_dist=0.1, 
-# #     #         n_components=2, 
-# #     #         metric='euclidean', #can change to cosine to be faster
-# #     #         # random_state=42, 
-# #     #         supervised=False)
-# #     #     labels = kmeans_clustering(matrix=umap_transformed, n_clusters=2, random_state=42, n_init=10, init='k-means++')
-# #     #     save_umap_results(umap_transformed, labels, f"{run_folder}\\umap_results.csv")
-   
-# #     # if os.path.exists(f"{run_folder}\\pca_results.csv"):
-# #     #     # print(f"Loading PCA results from {f"{run_folder}\\pca_results.csv"}...")
-# #     #     pca_df = pd.read_csv(f"{run_folder}\\pca_results.csv")
-# #     #     pca_transformed = pca_df.iloc[:, :-1].values
-# #     #     labels = pca_df.iloc[:, -1].values
-# #     #     print("PCA results loaded successfully.")
-# #     # else:
-# #     #     pca_transformed, loadings, explained = perform_pca(matrix_scaled, n_components=10)
-# #     #     labels = kmeans_clustering(matrix=pca_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
-# #     #     save_pca_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
-
-# #     pca_transformed, loadings, explained = perform_pca(matrix_scaled, n_components=10)
-# #     labels = kmeans_clustering(matrix=pca_transformed, n_clusters=3, random_state=42, n_init=10, init='k-means++')
-# #     save_pca_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
-# #     # embedding_sub,idx = subset_matrix(umap_transformed, subset_size=, seed=42)
-# #     # labels_sub = hdbscan_clustering(embedding_sub, min_cluster_size=20)
-
-#     plot_elbow_method(embedding, k_range=range(1,15))
-
-# # redo all the first ones i did !!
-#     # labels = kmeans_clustering(matrix=pca_transformed, n_clusters=5, random_state=42, n_init=10, init='k-means++')
-#     # save_umap_results(pca_transformed, labels, f"{run_folder}\\pca_results.csv")
-#     # save_umap_results(
-#     #     umap_transformed, 
-#     #     kmeans_labels,
-#     #     f"{run_folder}\\umap_results.csv"
-#     # )
-#     # labels = hdbscan_clustering(matrix=umap_transformed, min_cluster_size=40, min_samples=None, cluster_selection_method='eom')
-#     # save_umap_results(umap_transformed, labels, f"{run_folder}\\umap_results.csv")
-
-#     plot_umap_plotly(pca_transformed, 
-#         labels=labels,
-#         title=f"Interactive PCA Visualization - {reduction_name}", 
-#         save_html=f"{run_folder}\\pca_msi_{reduction_name}.html")
-    
-#     plot_pca_3d(pca_transformed, 
-#                 labels,
-#                 explained_variance=explained, 
-#                 save_html=f"{run_folder}\\pca_3d_{reduction_name}.html")
-#     spatial_map = reconstruct_spatial_map(labels, mask, original_shape)
-#     # # # save spatial map as matrix w label for each pixel so we can do edge pixel analysis and stuff
-#     plot_spatial_map(spatial_map, title=f"Mouse Brain MSI - {reduction_name}")
-
-    
-#     # umap_file_path=r"C:\Ioana\_uni\BTR_pipeline_code\results_segmentation_omp\umap_kmeans_k2_5x5_smoothing.csv"
-#     # umap_transformed = pd.read_csv(umap_file_path)
-
-#     print("Dimensionality reduction and clustering pipeline complete. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
+    # top_matrix_peaks_df = compute_matrix_cluster_peaks(
+    #     matrix_flat=matrix_scaled,
+    #     labels=labels.values,
+    #     matrix_cluster=matrix_cluster_id, 
+    #     filtered_mz=filtered_mz, 
+    #     run_folder=run_folder
+    # )
+    spatial_map = np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_spectral_spatial4_smoothing\hippocampus_OMP_pca10_spectral_spatial4_smoothing\spatial_map_matrix_hippocampus_OMP_pca10_spectral_spatial4_smoothing.npy")
+    reconstruct_spatial_map(labels, 
+                            mask, 
+                            original_shape,
+                            run_folder,
+                             reduction_name)
+    plot_spatial_map(spatial_map, title=f"Spatial Map of Clusters - {reduction_name}", run_folder=run_folder, n_clusters=len(np.unique(labels)), matrix_cluster_id=2)
+    plot_elbow_method(matrix_scaled, k_range=range(1,15), run_folder=run_folder)
 
 
 def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
@@ -1411,6 +1550,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     run_folder=run_folder,
     save_scaled=f"{run_folder}\\matrix_scaled.npy"
 )
+    
 
     # dimensionality reduction
     explained = None
@@ -1498,13 +1638,36 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         labels = kmeans_clustering(
             embedding,
             n_clusters=params["n_clusters"],
-            random_state=params.get("random_state", 42)
+            random_state= 42
         )
         plot_elbow_method(embedding, k_range=range(1,15), run_folder=run_folder)
 
     elif params["clustering"] == "hdbscan":
         labels = hdbscan_clustering(embedding)
 
+    elif params["clustering"] == "hierarchical" or params["clustering"] == "agglomerative":
+        labels = perform_agg_hierarchical_clustering(
+            matrix=embedding,
+            n_clusters=params["n_clusters"],
+            linkage='ward',
+            metric='euclidean',
+            max_samples=50000
+        )
+
+    # elif params["clustering"] == "spectral_spatial":
+    #     labels = spectral_clustering_spatial(
+    #         matrix=embedding,
+    #         W=pixel_graph,
+    #         n_clusters=params["n_clusters"],
+    #         random_state=42
+    #     )
+    
+    elif params["clustering"] == "spectral":
+        labels = spectral_clustering(
+            matrix=embedding,
+            n_clusters=params["n_clusters"],
+            random_state=42
+        )
     else:
         raise ValueError(f"Unknown clustering method")
 
@@ -1591,6 +1754,14 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         min_corner_fraction=params.get("matrix_min_corner_fraction", 0.3)
     )
 
+    top_matrix_peaks_df = compute_matrix_cluster_peaks(
+        matrix_flat=matrix_scaled,
+        labels=labels.values,
+        matrix_cluster=matrix_cluster_id,
+        filtered_mz=pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values, 
+        run_folder=run_folder
+    )
+
     plot_spatial_map(
         spatial_map, 
         title=f"Spatial Map - {params['run_id']}", 
@@ -1610,6 +1781,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
         "run_name": params["run_id"],
         # "runtime": runtime,
         "n_samples": len(labels),
-        "n_clusters_found": len(set(labels)) - (1 if -1 in set(labels) else 0)
+        "n_clusters_found": len(set(labels)) - (1 if -1 in set(labels) else 0),
+        "matrix_cluster_id": matrix_cluster_id
     }
 

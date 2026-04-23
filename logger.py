@@ -9,8 +9,7 @@ from preprocessing import run_preprocessing
 from dimensionality_red import run_dimensionality_reduction
 from clustering_metrics import run_clustering_metrics
 from feature_selection import run_feature_selection
-# from feature_selection import perform_anova_test, perform_fdr_correction, volcano_plot_plotly, run_random_forest, reconstruct_and_plot_ion_images, combine_anova_rf
-
+from spectra_analysis import run_cluster_spectrum_analysis_pipeline
 # batch_mode = False
 # batch_mode = True
 slide_filter = None # None to run all slides
@@ -43,11 +42,11 @@ single_params= {
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
-    "smoothing": "8_connect",
+    "smoothing": "8_connect", # None, "any string"
 
     # "smoothing": None,
-    "filtering": "guided", # None, "median", "savgol", "gaussian", "guided"
-    "peak_method": "OMP",
+    "filtering": None, # None, "median", "savgol", "gaussian", "guided"
+    "peak_method": "OMP", # "OMP", "MAD"
     "normalisation": "TIC",
     "omp_coefs": 700,
     "bin_tol": 0.005,
@@ -57,8 +56,11 @@ single_params= {
     "dimred": "pca", 
     "n_components": 10,
 
-    "clustering": "kmeans",
-    "n_clusters":4
+    "clustering": "spectral_spatial",
+    "n_clusters":4, 
+
+    "should_remove_matrix_peaks": True,
+    "detailed_spectrum_analysis": False
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -103,7 +105,6 @@ def run_pipeline(params: dict):
             f"{params['tissue']}_{params['computer']}",
             generate_method_name(params),
             generate_run_name(params), 
-            "newOMP"
         )
     os.makedirs(run_folder, exist_ok=True)
 
@@ -133,6 +134,12 @@ def run_pipeline(params: dict):
         run_folder,
         params
     )
+
+    if params["detailed_spectrum_analysis"]:
+        run_cluster_spectrum_analysis_pipeline(
+            params, 
+            run_folder
+        )
 
     #updating results
 

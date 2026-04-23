@@ -28,6 +28,28 @@ def load_things(raw_matrix_file_path: str,
     print(f"PCA results loaded. Shape: {pca_transformed.shape}, Clusters: {labels.nunique()}")
     return matrix_scaled, pca_transformed, labels
 
+def remove_matrix_peaks(peak_mz: np.ndarray,
+                        matrix_peaks: np.ndarray,
+                        # ratio_threshold: float,
+                        tol: float = 0.1) -> tuple:
+    """
+    Remove peaks from peak_mz that match flagged matrix peaks above ratio_threshold.
+    Returns filtered peak_mz and a list of removed peaks.
+    """
+    # flagged_mz = matrix_peaks["mz"].values
+    
+    keep = []
+    removed = []
+    for mz in peak_mz:
+        if np.any(np.abs(matrix_peaks - mz) <= tol):
+            removed.append(mz)
+        else:
+            keep.append(mz)
+
+    print(f"[remove_matrix_peaks] Removed {len(removed)} matrix peaks, "
+          f"kept {len(keep)} peaks (threshold={tol}x)")
+    return np.array(keep), np.array(removed)
+
 
 def perform_anova_test(matrix: np.ndarray, labels: pd.Series) -> pd.DataFrame:
     print("Performing ANOVA test for feature selection...")
@@ -286,135 +308,61 @@ def reconstruct_and_plot_ion_images(
 
 
 if __name__ == "__main__":
-    start_time = time.perf_counter()
-    results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results" # change folder path as needed
-    preprocessing_run_name = "liver_PC"
-    # reduction_name = "xenium_OMP_pca_umap10_k5_smoothing" # good segm but bg weird
-    reduction_name = "OMP_pca10_kmeans4_remove_matrix" # good segm 
-    # reduction_name = "xenium_OMP_pca10_k4" # bad segm
-    run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4"
+    
+    run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_hierarchical4_label_matrix_smoothing\hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
+    reduction_name = "hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
+    matrix = np.load(f"{run_folder}\\matrix.npy")
+    labels = pd.read_csv(f"{run_folder}\\pca_results.csv").iloc[:, -1]  # assuming last column is 'cluster'
+    spatial_map = np.load(f"{run_folder}\\spatial_map_matrix_{reduction_name}.npy")
+    matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
     mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
+    mask = np.load(f"{run_folder}\\mask.npy")
+    original_shape = np.load(f"{run_folder}\\original_shape.npy")
+    name_of_run = "hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
 
 
-    os.makedirs(run_folder, exist_ok=True)
-    matrix_scaled, pca_transformed, labels = load_things(
-        raw_matrix_file_path=f"{run_folder}\\matrix_scaled.npy",
-        file_path=f"{run_folder}\\pca_results.csv")
+    h, w, n_peaks = matrix.shape
+    matrix_flat = matrix.reshape(h * w, n_peaks)
+
+ 
+    should_remove_matrix_peaks = True
+
+    if "should_remove_matrix_peaks" in locals() and should_remove_matrix_peaks:
+        all_mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
+        matrix_peaks = pd.read_csv(f"{run_folder}\\top_peaks_matrix_cluster_2.csv")["m/z"].values
+        # remove patrix peaks from mz peaks
+        
+        print("Removing matrix peaks in feature selection.")
+        mz_values, _ = remove_matrix_peaks(
+            peak_mz=mz_values,
+            matrix_peaks=matrix_peaks,
+            # ratio_threshold=0.5, 
+            tol=0.1)
+        
+
+        keep_indices = [i for i, mz in enumerate(all_mz_values)
+                    if any(np.abs(mz_values - mz) < 1e-6)]
+
+
+        # flatten 3D matrix and apply mask before column filtering
+        matrix_flat = matrix_flat[mask]                    # remove zero pixels
+        matrix_flat = matrix_flat[:, keep_indices]         # remove matrix peak columns
+        #  so removing both matrix peaks and pixels !!!
+
+        print(f"Matrix shape after removing matrix peaks: {matrix_flat.shape}")
+        print(f"mz_values length: {len(mz_values)}")
+        assert matrix_flat.shape[1] == len(mz_values)
+
+        pd.DataFrame({"mz": mz_values}).to_csv(
+            f"{run_folder}\\filtered_mz_values_no_matrix_peaks.csv", index=False)
     
-    # p_values = perform_anova_test(
-    # matrix = matrix_scaled, 
-    #     # f"{run_folder}\\{params['dimred']}_results.csv"
-    # labels = labels)
-    # reject, pvals_corrected = perform_fdr_correction(
-    #     p_values=p_values
-    # )
-    # from scipy.stats import ttest_ind
-
-    # cluster_a = 1
-    # cluster_b = 2
-
-    # cluster0 = matrix_scaled[labels == cluster_a]
-    # cluster1 = matrix_scaled[labels == cluster_b]
-
-    # p_values = np.array([
-    #     ttest_ind(cluster0[:, i], cluster1[:, i], equal_var=False).pvalue
-    #     for i in range(matrix_scaled.shape[1])
-    # ])
-
-    # reject, pvals_corrected = perform_fdr_correction(p_values)
-    # anova_results_df = pd.DataFrame({
-    #     "mz": mz_values,
-    #     "p_value": p_values,
-    #     "adjusted_p_value": pvals_corrected,
-    #     "significant_after_fdr": reject
-    # # })
-
-    # volcano_plot_plotly(
-    #     matrix=matrix_scaled,
-    #     labels=labels,
-    #     p_values=pvals_corrected,   # ✅ use corrected p-values
-    #     run_folder=run_folder,
-    #     mz_values=mz_values,
-    #     name_of_run="cluster1_vs_cluster2",
-    #     cluster_a=cluster_a,
-    #     cluster_b=cluster_b
-    # )
-            
-    rf_dict = run_random_forest(matrix_scaled, 
-                                labels,
-                                mz_values, 
-                                run_folder, 
-                                reduction_name)
     
-#     mask = np.load(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop\xenium_OMP_pca10_k4_3x3_smoothing\mask.npy")
-#     for cluster_id in labels.unique():
-#         mask = labels == cluster_id
-#         cluster_means = matrix_scaled[mask].mean(axis=0)
-#         overall_means = matrix_scaled.mean(axis=0)
-#         enrichment = cluster_means / (overall_means + 1e-9)
-#         top_idx = np.argsort(enrichment)[::-1][:5]
-#         print(f"Cluster {cluster_id} top enriched m/z: {mz_values[top_idx]}")
-
-
-    mask = np.load(f"{run_folder}\mask.npy")
-#     mask = np.squeeze(np.asarray(mask))
-#     # print(mask.shape)
-#     # print(mask.ndim)
-
-    original_shape = tuple(np.load(f"{run_folder}\\original_shape.npy"))
-
-    
-    reconstruct_and_plot_ion_images(matrix_scaled=matrix_scaled, 
-                                    mask=mask, 
-                                    original_shape=original_shape,
-                                    mz_values=mz_values,
-                                    feature = 438.833,
-                                    rf_dict=rf_dict,
-                                    run_folder=run_folder)
-  
-
-#     consensus_df =  combine_anova_rf(
-#     anova_results_df=anova_results_df,
-#     rf_importances_df=rf_dict["importances_df"],
-#     top_n_rf=100,
-#     run_folder=run_folder,
-#     name_of_run=reduction_name,
-#     )
-
-#     # p_values = perform_anova_test(matrix=matrix_scaled, labels=labels)
-   
-# #     reject, pvals_corrected = perform_fdr_correction(p_values)
-# #     save_path = f"{run_folder}\\anova_results.csv"
-# #     anova_results_df = pd.DataFrame({
-# #         "mz": pd.read_csv(r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_tic_omp\filtered_mz_values.csv")["mz"].values,
-# #         "p_value": p_values,
-# #         "adjusted_p_value": pvals_corrected,
-# #         "significant_after_fdr": reject
-# #     })
-# #     anova_results_df.to_csv(save_path, index=False)
-# #     print(f"ANOVA results saved to {save_path}")
-    
-#     mz_values = pd.read_csv(r"C:\Users\i6338212\data\results\liver_PC\OMP_pca10_kmeans4_select_matrix\DHB_060326_DHB_Slide_11_50_um_OMP_pca10_kmeans4\filtered_mz_values.csv")["mz"].values
-#     volcano_plot_plotly(matrix_scaled, labels, p_values, mz_values)
-
-# we want to know how many features are significant after FDR correction, and what is the minimum adjusted p-value. This will give us an idea of how many features we can select for downstream analysis.
-
-def run_feature_selection(
-        dimensionality_red_output: dict,
-        params: dict, 
-        run_folder: str):
-    matrix = dimensionality_red_output["matrix_scaled"]
-    labels = dimensionality_red_output["labels"]
-    mask = dimensionality_red_output["mask"]
-    original_shape = dimensionality_red_output["original_shape"]
-    name_of_run = params["run_id"]
-
-    mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
-
+    # perform anova on mz values (but without matrix peaks)
     p_values = perform_anova_test(
-    matrix = dimensionality_red_output["matrix_scaled"], 
+    matrix = matrix_scaled, 
     # f"{run_folder}\\{params['dimred']}_results.csv"
-    labels = dimensionality_red_output["labels"])
+    labels = labels)
+    
     reject, pvals_corrected = perform_fdr_correction(
         p_values=p_values
     )
@@ -422,6 +370,128 @@ def run_feature_selection(
     #   ANOVA + FDR
     anova_results_df = pd.DataFrame({
             "mz": pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
+            # "mz": mz_values,
+            "p_value": p_values,
+            "adjusted_p_value": pvals_corrected,
+            "significant_after_fdr": reject
+        })
+    print(anova_results_df.head())
+    # anova_results_df.to_csv(f"{run_folder}\\anova_results_{name_of_run}.csv", index=False)
+    # volcano_plot_plotly(
+    #     matrix=matrix_flat,
+    #     labels=labels,
+    #     p_values=pvals_corrected, 
+    #     run_folder=run_folder,
+    #     mz_values=mz_values,
+    #     name_of_run="hippocampus_hierachica4_attempt",
+    # )
+
+    # RANDOM FOREST
+    rf_dict = run_random_forest(
+        matrix=matrix_flat,
+        labels=labels,
+        mz_values=mz_values,
+        run_folder=run_folder,
+        name_of_run="hippocampus_hierachica4_attempt",
+    )
+
+    # COMBO ANOVA/FDR + RFs
+    consensus_df = combine_anova_rf(
+        anova_results_df=anova_results_df,
+        rf_importances_df=rf_dict["importances_df"],
+        top_n_rf=100,
+        run_folder=run_folder,
+        name_of_run="hippocampus_hierachica4_attempt",
+    )
+
+    # plot first 3 ion images 
+    for feature in consensus_df["mz"].head(3):
+        reconstruct_and_plot_ion_images(
+            matrix_scaled=matrix_scaled,
+            mask=mask,
+            original_shape=original_shape,
+            mz_values=mz_values,
+            feature=feature,
+            rf_dict=rf_dict,
+            run_folder=run_folder,
+        )
+
+
+
+def run_feature_selection(
+        dimensionality_red_output: dict,
+        params: dict, 
+        run_folder: str):
+    
+    # load things
+    matrix = dimensionality_red_output["matrix_scaled"]
+    labels = dimensionality_red_output["labels"]
+    mask = dimensionality_red_output["mask"]
+    original_shape = dimensionality_red_output["original_shape"]
+    name_of_run = params["run_id"]
+
+    matrix_raw = np.load(f"{run_folder}\\matrix.npy")
+    h, w, n_peaks = matrix_raw.shape
+    matrix_flat = matrix_raw.reshape(h * w, n_peaks)
+
+    if params["should_remove_matrix_peaks"]:
+        all_mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
+        matrix_peaks = pd.read_csv(f"{run_folder}\\top_peaks_matrix_cluster_{dimensionality_red_output['matrix_cluster_id']}.csv")["m/z"].values
+        # remove patrix peaks from mz peaks
+        print("Removing matrix peaks in feature selection.")
+        
+        mz_values, removed = remove_matrix_peaks(
+            peak_mz=all_mz_values,
+            matrix_peaks=matrix_peaks,
+            # ratio_threshold=0.5, 
+            tol=0.1)
+        
+        keep_indices = [i for i, mz in enumerate(all_mz_values)
+                    if any(np.abs(mz_values - mz) < 0.1)]
+        print(f"all_mz_values: {len(all_mz_values)}")
+        print(f"mz_values after remove_matrix_peaks: {len(mz_values)}")
+        print(f"removed: {len(removed)}")
+        print(f"keep_indices: {len(keep_indices)}")
+
+        # flatten 3D matrix and apply mask before column filtering
+        # matrix_flat = matrix_flat[mask]   # remove zero pixels
+        # matrix_flat = matrix_flat[:, keep_indices]   # remove matrix peak columns
+        
+        mz_values_clean = all_mz_values[keep_indices]
+        matrix_flat = matrix_flat[mask]
+        matrix_flat = matrix_flat[:, keep_indices]
+
+        
+        #  so removing both matrix peaks and pixels !!!
+        print(f"Matrix shape after removing matrix peaks: {matrix_flat.shape}")
+        print(f"mz_values length: {len(mz_values)}")
+
+
+        print(f"keep_indices: {len(keep_indices)}")
+        print(f"mz_values_clean: {len(mz_values_clean)}")
+        print(f"matrix_flat: {matrix_flat.shape}")
+
+        assert matrix_flat.shape[1] == len(mz_values_clean) 
+            # f"Mismatch: matrix has {matrix.shape[1]} columns but mz_values has {len(mz_values)} entries"
+
+        save_path = f"{run_folder}\\filtered_mz_values_no_matrix_peaks.csv"
+        pd.DataFrame({"mz": mz_values}).to_csv(save_path, index=False)
+        print(f"Filtered m/z values saved to {save_path}")
+
+    # perform anova on mz values (but without matrix peaks)
+    p_values = perform_anova_test(
+    matrix = dimensionality_red_output["matrix_scaled"], 
+    # f"{run_folder}\\{params['dimred']}_results.csv"
+    labels = dimensionality_red_output["labels"])
+    
+    reject, pvals_corrected = perform_fdr_correction(
+        p_values=p_values
+    )
+
+    #   ANOVA + FDR
+    anova_results_df = pd.DataFrame({
+            "mz": pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
+            # "mz": ,
             "p_value": p_values,
             "adjusted_p_value": pvals_corrected,
             "significant_after_fdr": reject
@@ -429,18 +499,18 @@ def run_feature_selection(
     anova_results_df.to_csv(f"{run_folder}\\anova_results_{name_of_run}.csv", index=False)
 
     # VOLCANO PLOT
-    volcano_plot_plotly(
-        matrix=matrix,
-        labels=labels,
-        p_values=pvals_corrected, 
-        run_folder=run_folder,
-        mz_values=mz_values,
-        name_of_run=name_of_run,
-    )
+    # volcano_plot_plotly(
+    #     matrix=matrix,
+    #     labels=labels,
+    #     p_values=pvals_corrected, 
+    #     run_folder=run_folder,
+    #     mz_values=mz_values,
+    #     name_of_run=name_of_run,
+    # )
 
     # RANDOM FOREST
     rf_dict = run_random_forest(
-        matrix=matrix,
+        matrix=matrix_flat,
         labels=labels,
         mz_values=mz_values,
         run_folder=run_folder,
@@ -456,13 +526,14 @@ def run_feature_selection(
         name_of_run=name_of_run,
     )
 
+    
     # PLOT ION IMAGES
     if len(consensus_df) > 0:
         reconstruct_and_plot_ion_images(
-            matrix_scaled=matrix,
-            mask=mask,
-            original_shape=original_shape,
-            mz_values=mz_values,
+            matrix_scaled=dimensionality_red_output["matrix_scaled"],
+            mask=dimensionality_red_output["mask"],
+            original_shape=dimensionality_red_output["original_shape"],
+            mz_values=pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values,
             feature=consensus_df["mz"].iloc[0],
             rf_dict=rf_dict,
             run_folder=run_folder,
