@@ -3,90 +3,64 @@
 
 
 import thyra
+print(thyra.__version__)
 import spatialdata as sd
 print(sd.__version__)
 
 from thyra import convert_msi
+import inspect
 import zarr 
 
 
-# sdata = thyra.read_bruker(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1409_DHB_30um.d")
-# sdata.write("20260413_L6_C1409_DHB_30um.zarr")
-# print("successfully convered!")
 
-# z = zarr.open(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um.zarr")
-# print(dict(z.attrs))
 
 
 # success = convert_msi(
 #     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1409_DHB_30um.d",
-#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um_new.zarr",
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_new\20260413_L6_C1409_DHB_30um_resample.zarr",
 #     dataset_id="hippocampus_mosaic",
-# ) 
-
-# # sample 1
-# sdata = thyra.convert_msi(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1409_DHB_30um.d")
-# print(thype(sdata))
-
-# sdata.write(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um_new.zarr")
-
-# z = zarr.open(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um_new.zarr")
-# print(dict(z.attrs))
-
-# # sample 2
-# sdata1 = thyra.convert_msi(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.d")
-# print(thype(sdata1))
-
-# sdata1.write(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1411_DHB_30um_new.zarr")
-
-# z1 = zarr.open(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1411_DHB_30um_new.zarr")
-# print(dict(z1.attrs))
-
-# # sample 3
-# sdata2 = thyra.convert_msi(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C2601_DHB_30um.d")
-# print(thype(sdata2))
-
-# sdata2.write(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C2601_DHB_30um_new.zarr")
-
-# z2 = zarr.open(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C2601_DHB_30um_new.zarr")
-# print(dict(z2.attrs))
-
-# success1 = convert_msi(
-#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.d",
-#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.zarr",
-#     dataset_id="hippocampus_mosaic",
+#     reader_options={
+#         "use_calibrated_state": True,
+#         "intensity_threshold": 500.0,
+#     },
 # )
+# #  poetry run python convert_files.py
 
-# success2 = convert_msi(  
-#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C2601_DHB_30um.d",
-#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C2601_DHB_30um.zarr",
-#     dataset_id="hippocampus_mosaic",
-# )
 
-import os 
-# print(os.listdir(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1411_DHB_30um.zarr"))
-# print(os.listdir(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1409_DHB_30um.d"))
-
-import json
+import zarr
 import anndata as ad
-# with open(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um.zarr\zarr.json") as f:
-#     print(json.dumps(json.load(f), indent=2))
 
-for folder in ['images', 'shapes', 'tables']:
-    path = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um.zarr" + "\\" + folder
-    print(folder, os.listdir(path))
+# Open the zarr store directly (bypassing spatialdata's OME check)
+store = zarr.open(
+    r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_new\20260413_L6_C1409_DHB_30um_resample.zarr",
+    mode="r"
+)
 
-
-# sdata = sd.read_zarr(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um.zarr")
-# print("ok")
-# print(list(sdata.tables.keys()))
-# print(list(sdata.images.keys()))
-
-store = zarr.open(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um.zarr", mode="r")
-adata = ad.read_zarr(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um.zarr\tables\hippocampus_mosaic_z0")
-
+# Read the table directly as AnnData
+adata = ad.read_zarr(
+    r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_new\20260413_L6_C1409_DHB_30um_resample.zarr\tables\hippocampus_mosaic_z0"
+)
 
 print(adata)
 print(adata.var["mz"].values[:10])
 print(adata.obs.columns.tolist())
-#  poetry run python convert_files.py    
+
+# try these in order to find docs
+# help(convert_msi)
+
+# # also check if there's a resampling config class
+# try:
+#     from thyra import ResamplingConfig
+#     help(ResamplingConfig)
+# except ImportError:
+#     print("no ResamplingConfig class")
+
+# try:
+#     from thyra.config import ResamplingConfig
+#     help(ResamplingConfig)
+# except ImportError:
+#     print("not in thyra.config either")
+
+# # check what's available in the thyra module
+# import thyra
+# print(dir(thyra))
