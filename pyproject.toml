@@ -6,7 +6,7 @@ authors = [
     {name = "ioanasarah", email = "ioana.aizic@gmail.com"}
 ]
 requires-python = ">=3.11,<3.12"
-dependencies = ["statsmodels (>=0.14.6,<0.15.0)", "spatialdata (>=0.7.2,<0.8.0)", "matplotlib (>=3.10.8,<4.0.0)", "matchms (>=0.32.0,<0.33.0)", "scikit-learn (>=1.8.0,<2.0.0)", "umap-learn (>=0.5.11,<0.6.0)", "plotly (>=6.6.0,<7.0.0)", "opencv-contrib-python (>=4.13.0.92,<5.0.0.0)"]
+dependencies = ["statsmodels (>=0.14.6,<0.15.0)", "spatialdata (>=0.7.2,<0.8.0)", "matplotlib (>=3.10.8,<4.0.0)", "matchms (>=0.32.0,<0.33.0)", "scikit-learn (>=1.8.0,<2.0.0)", "umap-learn (>=0.5.11,<0.6.0)", "plotly (>=6.6.0,<7.0.0)", "opencv-contrib-python (>=4.13.0.92,<5.0.0.0)", "thyra (>=1.20.3,<2.0.0)", "defusedxml (>=0.7.1,<0.8.0)"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
