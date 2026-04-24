@@ -37,12 +37,12 @@ single_params= {
     "computer": "laptop",
     "experiment": "hippocampus_laptop",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    "zarr_path": r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr",
+    "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_new\20260413_L6_C1411_DHB_30um_resample.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
-    "smoothing": "8_connect", # None, "any string"
+    "smoothing": None, # None, "any string"
 
     # "smoothing": None,
     "filtering": None, # None, "median", "savgol", "gaussian", "guided"
@@ -56,7 +56,7 @@ single_params= {
     "dimred": "pca", 
     "n_components": 10,
 
-    "clustering": "spectral_spatial",
+    "clustering": "kmeans",
     "n_clusters":4, 
 
     "should_remove_matrix_peaks": True,
