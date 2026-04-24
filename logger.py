@@ -32,17 +32,17 @@ results_csv = os.path.join(results_folder, "experiment_results.csv")
 
 single_params= {
     "batch_mode": False,
-    "tissue": "hippocampus",
+    "tissue": "mosaic_hippocampus",
     "dataset": "hippocampus",
-    "computer": "laptop",
-    "experiment": "hippocampus_laptop",
+    "computer": "theos_comp",
+    "experiment": "hippocampus_theos_comp",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    "zarr_path": r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr",
+    "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_new\20260413_L6_C1411_DHB_30um_resample.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
-    "smoothing": "8_connect", # None, "any string"
+    "smoothing": None, # None, "any string"
 
     # "smoothing": None,
     "filtering": None, # None, "median", "savgol", "gaussian", "guided"
@@ -56,10 +56,10 @@ single_params= {
     "dimred": "pca", 
     "n_components": 10,
 
-    "clustering": "spectral_spatial",
+    "clustering": "kmeans",
     "n_clusters":4, 
 
-    "should_remove_matrix_peaks": True,
+    "should_remove_matrix_peaks": False,
     "detailed_spectrum_analysis": False
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
