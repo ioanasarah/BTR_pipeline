@@ -586,7 +586,7 @@ if __name__ == "__main__":
     # run_folder = r"C:\Users\i6338212\data\results\hippocampus_PC\OMP_spca10_kmeans4_smoothing\hippocampus_OMP_spca10_kmeans4_smoothing"
     # run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP1000_pca10_kmeans5\DHB_060326_DHB_Slide_11_50_um_OMP1000_pca10_kmeans5"
     # run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_hierarchical4_label_matrix_smoothing\hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
-    run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\MAD_pca10_kmeans4_smoothing\hippocampus_MAD_pca10_kmeans4_smoothing"
+    run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\mosaic_hippocampus_theos_comp\OMP_pca10_kmeans4\hippocampus_OMP_pca10_kmeans4"
 
     # For raw spectrum deep dive — list of zarr paths to load
     # For mosaic: list all 10 sample zarrs
@@ -608,7 +608,8 @@ if __name__ == "__main__":
     # ]
     zarr_paths = [
         # r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr"
-        r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr"
+        # r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr"
+        r"C:\Ioana\_uni\btr\zarr\20260413_L6_C1409_DHB_30um_resample.zarr"
     ]
 
     # set to True if this is a mosaic run folder, False for single sample

@@ -32,10 +32,9 @@ def reconstruct_and_plot_ion_images(
 
 # poetry run python plot_ion_images.py
 if __name__ == "__main__":
-    feature = 866.6
+    feature = 639.56
     # results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_hierarchical4_label_matrix_smoothing\hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
-    results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\MAD_pca10_kmeans4_smoothing\hippocampus_MAD_pca10_kmeans4_smoothing"
-
+    results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\mosaic_hippocampus_theos_comp\OMP_pca10_kmeans4\hippocampus_OMP_pca10_kmeans4"
     original_shape = np.load(f"{results_folder}\\original_shape.npy")
     matrix_scaled = np.load(f"{results_folder}\\matrix_scaled.npy")
     mask = np.load(f"{results_folder}\\mask.npy")

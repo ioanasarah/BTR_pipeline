@@ -1273,11 +1273,11 @@ def plot_spatial_map(spatial_map: np.ndarray,
     n_actual=len(unique_clusters)
 
 
-    # cluster_colours = [
-    #     "red", "blue", "green", "yellow", "purple",
-    #     "orange", "cyan", "magenta", "lime", "brown", 
-    #     "pink", "white", "purple"
-    # ]
+    cluster_colours = [
+        "red", "blue", "green", "yellow", "purple",
+        "orange", "cyan", "magenta", "lime", "brown", 
+        "pink", "white", "purple"
+    ]
 
     # cluster_colours = [
     #     "#eb7ce3", 
@@ -1289,18 +1289,18 @@ def plot_spatial_map(spatial_map: np.ndarray,
     #     "#0c5951"
     # ]
 
-    cluster_colours = [
-        "#e4827d", 
-        # "#bbbc59",
-        "#781c61", 
-        "#4d9778",
-        "#f6d487",
+    # cluster_colours = [
+    #     "#e4827d", 
+    #     # "#bbbc59",
+    #     "#781c61", 
+    #     "#4d9778",
+    #     "#f6d487",
 
-        "#4549ab",
-        "#0c5951",
-        "#4B0505",
-        "#b3e3db",
-    ]
+    #     "#4549ab",
+    #     "#0c5951",
+    #     "#4B0505",
+    #     "#b3e3db",
+    # ]
 
     # remap cluster ids to contiguous 0-based indices so colormap lines up
     remap = {cl: i+1 for i, cl in enumerate(unique_clusters)}  # +1 to leave 0 for background
