@@ -20,6 +20,8 @@ scipy = ">=1.7.0"
 setuptools = "69.5.1"
 torch = {source = "pytorch"}
 statsmodels = "^0.14.6"
+thyra = "1.20.3"
+defusedxml = "^0.7.1"
 
 [[tool.poetry.source]]
 name = "pytorch"

@@ -39,7 +39,7 @@ single_params= {
     "experiment": "hippocampus_laptop",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr",
-    "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
+    "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_new\20260413_L6_C1409_DHB_30um_resample.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
@@ -50,11 +50,11 @@ single_params= {
     "peak_method": "OMP",
     "normalisation": "TIC",
     "omp_coefs": 700,
-    "bin_tol": 0.005,
+    "bin_tol": 0.001,
     "matrix_ratio_threshold": None, 
     "matrix_zarr_path": None,
 
-    "dimred": "pca", 
+    "dimred": "pca",
     "n_components": 10,
 
     "clustering": "kmeans",

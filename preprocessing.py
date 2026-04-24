@@ -43,6 +43,13 @@ def reading_data(path):
     return spatial_data  
 # how can i load this once and store it so i dont have to run this every time? 
 
+def reading_data_anndata(path):
+    tables_path = os.path.join(path, "tables")
+    tables_name = os.listdir(tables_path)[0]
+    adata = ad.read_zarr(os.path.join(tables_path, tables_name))
+    return adata
+
+
 
 def compute_average_spectrum(
         spatial_data
@@ -50,7 +57,8 @@ def compute_average_spectrum(
     
     print("computing average spectrum...")
     # data = spatial_data["MALDI-MSI_z0"] # for maldi msi mouse brain zarr
-    data = list(spatial_data.tables.values())[0]
+    # data = list(spatial_data.tables.values())[0]
+    data = spatial_data
     mz = data.var["mz"].values
     avg_intensity = data.uns["average_spectrum"] # unstructured annotation within anndata object
     # average intensity at each m/z across all pixels
@@ -1180,7 +1188,7 @@ def preprocess_single_sample(zarr_path: str,
     os.makedirs(sample_folder, exist_ok=True)
 
     
-    spatial_data = reading_data(zarr_path)
+    spatial_data = reading_data_anndata(zarr_path)
     data, mz, avg_intensity, _ = compute_average_spectrum(spatial_data)
     if params.get("filtering") == "median":
         avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
@@ -1192,7 +1200,7 @@ def preprocess_single_sample(zarr_path: str,
     else:
         peak_mz, _ = peak_detection_mad(mz, avg_intensity, window_size=20, snr=2)
 
-    peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
+    # peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
 
     if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
         peak_mz, removed = filter_matrix_peaks(
@@ -1239,7 +1247,8 @@ def run_preprocessing(params, run_folder):
     if params.get("batch_mode", False):
         # run omp on first sample to get candidat mz
         ref_zarr = sample_zarr_paths[0]
-        ref_sd = reading_data(ref_zarr)
+        # ref_sd = reading_data(ref_zarr)
+        red_sd = reading_data_anndata(ref_zarr)
         ref_data, ref_mz, ref_avg, _ = compute_average_spectrum(ref_sd)
         ref_peak_mz, _ = peak_detection_omp(
             ref_mz, ref_avg, run_folder,
@@ -1322,7 +1331,8 @@ def run_preprocessing(params, run_folder):
         # for key in z.keys():
         #     print(key, dict(z[key].attrs))
 
-        spatial_data = reading_data(params["zarr_path"])
+        # spatial_data = reading_data(params["zarr_path"])
+        spatial_data = reading_data_anndata(params["zarr_path"])
         AnnData, mz, filtered_avg_intensity, _ = compute_average_spectrum(spatial_data)
 
         if params["filtering"] == "median":
@@ -1340,7 +1350,7 @@ def run_preprocessing(params, run_folder):
                 mz, filtered_avg_intensity, window_size=20, snr=2
             )
 
-        peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
+        # peak_mz = filter_nonphysical_peaks(peak_mz, tol=0.15)
         
         print(f"[debug] len(spatial_data.var['mz'].values): {len(spatial_data.var['mz'].values)}")
         matrix_zarr_path = params.get("matrix_zarr_path")
@@ -1354,13 +1364,13 @@ def run_preprocessing(params, run_folder):
                 matrix_zarr_path=matrix_zarr_path,
                 top_n_images=20
             )
-        if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
-            peak_mz, removed = filter_matrix_peaks(
-                peak_mz,
-                matrix_peaks_df,
-                ratio_threshold=params["matrix_ratio_threshold"],
-                tol=0.2
-            )
+        # if matrix_peaks_df is not None and params.get("matrix_ratio_threshold"):
+        #     peak_mz, removed = filter_matrix_peaks(
+        #         peak_mz,
+        #         matrix_peaks_df,
+        #         ratio_threshold=params["matrix_ratio_threshold"],
+        #         tol=0.2
+        #     )
 
         bins = peak_binning(peak_mz, run_folder, tolerance=params["bin_tol"])
         pooled_spectra, pooled_mz = pooling(AnnData.X, mz, bins)
