@@ -10,6 +10,7 @@ from thyra import convert_msi
 import zarr 
 
 
+
 # sdata = thyra.read_bruker(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1409_DHB_30um.d")
 # sdata.write("20260413_L6_C1409_DHB_30um.zarr")
 # print("successfully convered!")
@@ -18,11 +19,11 @@ import zarr
 # print(dict(z.attrs))
 
 
-success = convert_msi(
-    r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1409_DHB_30um.d",
-    r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um_new.zarr",
-    dataset_id="hippocampus_mosaic",
-)
+# success = convert_msi(
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1409_DHB_30um.d",
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C1409_DHB_30um_new.zarr",
+#     dataset_id="hippocampus_mosaic",
+# )
 
 # # sample 1
 # sdata = thyra.convert_msi(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1409_DHB_30um.d")
@@ -51,14 +52,19 @@ success = convert_msi(
 # z2 = zarr.open(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr\20260413_L6_C2601_DHB_30um_new.zarr")
 # print(dict(z2.attrs))
 
-success1 = convert_msi(
-    r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.d",
-    r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.zarr",
-    dataset_id="hippocampus_mosaic",
-)
+# success1 = convert_msi(
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.d",
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.zarr",
+#     dataset_id="hippocampus_mosaic",
+# )
 
-success2 = convert_msi(  
-    r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C2601_DHB_30um.d",
-    r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C2601_DHB_30um.zarr",
-    dataset_id="hippocampus_mosaic",
-)
+# success2 = convert_msi(  
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C2601_DHB_30um.d",
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C2601_DHB_30um.zarr",
+#     dataset_id="hippocampus_mosaic",
+# )
+import spatialdata as sd
+
+sdata = sd.read_zarr(r"C:\Ioana\_uni\btr\zarr\hippocampus.zarr")
+adata = list(sdata.tables.values())[0]
+print(adata)
