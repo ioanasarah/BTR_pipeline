@@ -32,10 +32,10 @@ results_csv = os.path.join(results_folder, "experiment_results.csv")
 
 single_params= {
     "batch_mode": False,
-    "tissue": "hippocampus",
+    "tissue": "mosaic_hippocampus",
     "dataset": "hippocampus",
-    "computer": "laptop",
-    "experiment": "hippocampus_laptop",
+    "computer": "theos_comp",
+    "experiment": "hippocampus_theos_comp",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
     "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_new\20260413_L6_C1411_DHB_30um_resample.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
@@ -59,7 +59,7 @@ single_params= {
     "clustering": "kmeans",
     "n_clusters":4, 
 
-    "should_remove_matrix_peaks": True,
+    "should_remove_matrix_peaks": False,
     "detailed_spectrum_analysis": False
 
     # "run_id": "OMP_pca10_k3_no_smoothing",

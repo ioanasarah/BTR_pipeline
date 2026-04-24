@@ -24,7 +24,7 @@ from sklearn.preprocessing import normalize
 from scipy.stats import f_oneway
 from scipy.spatial.distance import cdist
 from scipy.linalg import eigh
-import cv2
+# import cv2
 import statsmodels
 from statsmodels.stats.multitest import multipletests
 import scipy.sparse as sp
