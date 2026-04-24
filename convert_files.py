@@ -57,6 +57,11 @@ import zarr
 #     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.zarr",
 #     dataset_id="hippocampus_mosaic",
 # )
+# success1 = convert_msi(
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.d",
+#     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C1411_DHB_30um.zarr",
+#     dataset_id="hippocampus_mosaic",
+# )
 
 # success2 = convert_msi(  
 #     r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1\20260413_L6_C2601_DHB_30um.d",
