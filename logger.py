@@ -12,7 +12,7 @@ from feature_selection import run_feature_selection
 from spectra_analysis import run_cluster_spectrum_analysis_pipeline
 # batch_mode = False
 # batch_mode = True
-slide_filter = "DHB Slide 4 50 um" # None to run all slides
+slide_filter = None # None to run all slides
 #  DHB Slide 4 50 um
 
 
@@ -47,22 +47,22 @@ single_params= {
     "smoothing": None, # None, "any string" applies smoothing with the 8 nearest neighbours
 
     # "smoothing": None,
-    "filtering": None, # None, "median", "savgol", "gaussian", "guided"
+    "filtering": "savgol", # None, "median", "savgol", "gaussian", "guided"
     "peak_method": "OMP", # "OMP", "MAD"
     "normalisation": "TIC",
-    "omp_coefs": 300,
+    "omp_coefs": 700,
     "bin_tol": 0.005,
     "filtering_mz_tol": 0.005, # 0.01 = 1%
     "matrix_ratio_threshold": None, 
     # "matrix_zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\100326 DHB Slide 4 50 um\matrix 1.zarr",
-    "matrix_zarr_path": None,
+    "matrix_zarr_path": None,   
 
 
-    "dimred": "pca", # "pca", "spca", "nmf", "umap", "mnf" 
+    "dimred": "spca", # "pca", "spca", "nmf", "umap", "mnf" 
     "n_components": 10,
 
     "clustering": "kmeans", # "kmeans", "hierarchical", "hdbscan", "spectral"
-    "n_clusters":5, 
+    "n_clusters":4, 
 
     "should_remove_matrix_peaks": True,
     "detailed_spectrum_analysis": True
@@ -121,7 +121,14 @@ def run_pipeline(params: dict):
 
     # PREPROCESSING + DIM REDUCTION
     preprocessing_output = run_preprocessing(params, run_folder)
-    # preprocessing_output = {"n_features": "144"}
+
+    # load sample_offset so dimred knows where tissue starts
+    offset_path = os.path.join(run_folder, "sample_offset.npy")
+    if os.path.exists(offset_path):
+        params["sample_offset"] = int(np.load(offset_path)[0])
+    else:
+        params["sample_offset"] = 0
+
     dimensionality_red_output = run_dimensionality_reduction(
         # preprocessing_output["matrix_path"],
         f"{run_folder}/matrix.npy",
@@ -171,6 +178,7 @@ def run_pipeline(params: dict):
 
 
 if __name__ == "__main__":
+    start_time = time.perf_counter()
     if single_params["batch_mode"]:
         print("Running batch mode!")
         from batch_runner import collect_batch_params
@@ -183,6 +191,4 @@ if __name__ == "__main__":
     else:
         run_pipeline(single_params)
 
-
-if __name__ == "__main__":
-    print("Full run completed and logged.")
+    print(f"Full run completed and logged. Took {time.perf_counter() - start_time:.2f} seconds")

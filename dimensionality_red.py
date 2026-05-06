@@ -1159,6 +1159,53 @@ def identify_matrix_cluster(
     return int(best_cluster)
 
 
+def identify_matrix_cluster_liver(
+    labels: np.ndarray,
+    spatial_map: np.ndarray,
+    corner_fraction: float = 0.1,
+    min_corner_fraction: float = 0.3
+) -> list[int]:
+    """
+    Identifies all clusters that predominantly occupy the top-left corner
+    of the spatial map (where the matrix block signal typically lives).
+    Returns a list of cluster IDs identified as matrix (may be empty).
+    """
+    height, width = spatial_map.shape
+    corner_row = int(height * corner_fraction)
+    corner_col = int(width * corner_fraction)
+
+    corner_region = spatial_map[:corner_row, :corner_col]
+    corner_labels = corner_region[corner_region >= 0]
+
+    if len(corner_labels) == 0:
+        print("No non-background pixels found in corner region.")
+        return []
+
+    unique_clusters = np.unique(labels[labels >= 0])
+    cluster_sizes = {cl: np.sum(labels == cl) for cl in unique_clusters}
+    corner_counts = pd.Series(corner_labels).value_counts()
+
+    matrix_clusters = []
+    for cl, count in corner_counts.items():
+        fraction_in_corner = count / cluster_sizes[cl]
+        print(f"  Cluster {cl}: {count} pixels in corner, "
+              f"{fraction_in_corner:.1%} of cluster total --> corner score: {fraction_in_corner:.3f}")
+        if fraction_in_corner >= min_corner_fraction:
+            matrix_clusters.append(int(cl))
+            print(f"  --> Cluster {cl} flagged as MATRIX")
+
+    if not matrix_clusters:
+        # fall back to best single cluster if none cleared threshold
+        best_cl = max(corner_counts.index, key=lambda cl: corner_counts[cl] / cluster_sizes[cl])
+        print(f"  No cluster cleared threshold — falling back to best: cluster {best_cl}")
+        matrix_clusters = [int(best_cl)]
+
+    print(f"Matrix clusters identified: {matrix_clusters}")
+    return matrix_clusters
+
+
+
+
 def compute_matrix_cluster_peaks(matrix_flat: np.ndarray,
                                  labels: np.ndarray,
                                  matrix_cluster: int, 
@@ -1193,6 +1240,33 @@ def compute_matrix_cluster_peaks(matrix_flat: np.ndarray,
     top_matrix_peaks_df.to_csv(f"{run_folder}\\top_peaks_matrix_cluster_{matrix_cluster}.csv", index=False)
 
     return top_matrix_peaks_df
+
+
+
+def compute_matrix_cluster_peaks_liver(matrix_flat, labels, matrix_cluster,  # matrix_cluster is now a list
+                                  filtered_mz, run_folder):
+    all_dfs = []
+    for cl in matrix_cluster:
+        mask = labels == cl
+        cluster_pixels = matrix_flat[mask]
+        avg_spectrum = cluster_pixels.mean(axis=0)
+        print(f"  Cluster {cl} (matrix): {cluster_pixels.shape[0]} pixels")
+
+        top_idx = np.argsort(avg_spectrum)[-20:][::-1]
+        for idx in top_idx:
+            print(f"    m/z {filtered_mz[idx]:.2f} - intensity {avg_spectrum[idx]:.2f}")
+
+        df = pd.DataFrame({
+            "m/z": filtered_mz[top_idx],
+            "intensity": avg_spectrum[top_idx],
+            "cluster": cl
+        })
+        df.to_csv(f"{run_folder}\\top_peaks_matrix_cluster_{cl}.csv", index=False)
+        all_dfs.append(df)
+
+    return pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
+
+
 
 # def label_matrix_clusters(
 #         labels: np.ndarray,
@@ -1779,20 +1853,40 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
     spatial_map = reconstruct_spatial_map(labels, mask, original_shape, run_folder, params['run_id'])
     matrix_cluster_id = None
     if params["tissue"] != "mouse_brain":
-        matrix_cluster_id = identify_matrix_cluster(
-            labels=labels.values,
-            spatial_map=spatial_map,
-            corner_fraction=params.get("matrix_corner_fraction", 0.2),
-            min_corner_fraction=params.get("matrix_min_corner_fraction", 0.3)
-        )
+        sample_offset = params.get("sample_offset", 0)
+        if sample_offset>0:
+            matrix_cluster_id = None
+            print(f"[dimred] matrix block was pre zeroed out - skipping identify_matrix_cluster")
+        else:
+            # if params["tissue"] == "liver_mosaic":
+        #     matrix_cluster_ids = identify_matrix_cluster_liver(
+        #     labels=labels.values,
+        #     spatial_map=spatial_map,
+        #     corner_fraction=params.get("matrix_corner_fraction", 0.1),
+        #     min_corner_fraction=params.get("matrix_min_corner_fraction", 0.2)
+        # )
 
-        top_matrix_peaks_df = compute_matrix_cluster_peaks(
-            matrix_flat=matrix_scaled,
-            labels=labels.values,
-            matrix_cluster=matrix_cluster_id,
-            filtered_mz=pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values, 
-            run_folder=run_folder
-        )
+        #     top_matrix_peaks_df = compute_matrix_cluster_peaks_liver(
+        #         matrix_flat=matrix_scaled,
+        #         labels=labels.values,
+        #         matrix_cluster=matrix_cluster_ids,
+        #         filtered_mz=pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values, 
+        #         run_folder=run_folder
+        #     )
+            matrix_cluster_id = identify_matrix_cluster(
+                labels=labels.values,
+                spatial_map=spatial_map,
+                corner_fraction=params.get("matrix_corner_fraction", 0.1),
+                min_corner_fraction=params.get("matrix_min_corner_fraction", 0.2)
+            )
+
+            top_matrix_peaks_df = compute_matrix_cluster_peaks(
+                matrix_flat=matrix_scaled,
+                labels=labels.values,
+                matrix_cluster=matrix_cluster_id,
+                filtered_mz=pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values, 
+                run_folder=run_folder
+            )
 
     plot_spatial_map(
         spatial_map, 

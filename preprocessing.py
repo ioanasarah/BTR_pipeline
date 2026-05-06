@@ -1470,6 +1470,8 @@ def run_preprocessing(params, run_folder):
             full_mz_axis=full_mz_axes[0],  # all share same raw mz axis
             gap=10
         )
+
+        sample_offset = params.get("sample_offset", 0)
         if sample_offset > 0:
             mosaic[:sample_offset, :, :] = 0.0   # exclude matrix block from clustering
             print(f"[run_preprocessing] Matrix block excluded: rows 0–{sample_offset}")
