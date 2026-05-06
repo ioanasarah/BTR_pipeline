@@ -875,7 +875,7 @@ def build_slide_mosaic(sample_matrices: list, n_pra: int,
     Returns combined 3D mosaic and a dict of sample offsets for provenance.
     """
 
-    print("Buildin slide mosaic")
+    print("Building slide mosaic")
     pra_matrices = sample_matrices[:n_pra]
     hnr_matrices = sample_matrices[n_pra:]
 
@@ -1408,14 +1408,14 @@ def run_preprocessing(params, run_folder):
 
     if params.get("batch_mode", False):
         # run omp on first sample to get candidat mz
-        ref_zarr = sample_zarr_paths[0]
-        ref_sd = reading_data_anndata(ref_zarr)
-        ref_data, ref_mz, ref_avg, _ = compute_average_spectrum(ref_sd)
-        ref_peak_mz, _ = peak_detection_omp(
-            ref_mz, ref_avg, run_folder,
-            non_zero_coefs=params["omp_coefs"]
-        )
-        print(f"[preprocessing] Reference OMP found {len(ref_peak_mz)} candidate peaks")
+        # ref_zarr = sample_zarr_paths[0]
+        # ref_sd = reading_data_anndata(ref_zarr)
+        # ref_data, ref_mz, ref_avg, _ = compute_average_spectrum(ref_sd)
+        # ref_peak_mz, _ = peak_detection_omp(
+        #     ref_mz, ref_avg, run_folder,
+        #     non_zero_coefs=params["omp_coefs"]
+        # )
+        # print(f"[preprocessing] Reference OMP found {len(ref_peak_mz)} candidate peaks")
 
     # identify matrix peaks first if matrix zarr available
         
@@ -1465,7 +1465,7 @@ def run_preprocessing(params, run_folder):
         mosaic, sample_offset = build_slide_mosaic(
             reindexed_matrices,
             n_pra=params.get("n_pra", len(reindexed_matrices) // 2),
-            matrix_zarr_path=params.get("matrix_zarr_path"),
+            matrix_zarr_path=params["matrix_zarr_path"],
             common_mz=common_mz,
             full_mz_axis=full_mz_axes[0],  # all share same raw mz axis
             gap=10

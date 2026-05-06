@@ -12,7 +12,7 @@ from feature_selection import run_feature_selection
 from spectra_analysis import run_cluster_spectrum_analysis_pipeline
 # batch_mode = False
 # batch_mode = True
-slide_filter = None # None to run all slides
+slide_filter = "DHB Slide 4 50 um" # None to run all slides
 #  DHB Slide 4 50 um
 
 
@@ -54,13 +54,13 @@ single_params= {
     "bin_tol": 0.005,
     "filtering_mz_tol": 0.005, # 0.01 = 1%
     "matrix_ratio_threshold": None, 
-    "matrix_zarr_path": None,
+    "matrix_zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\100326 DHB Slide 4 50 um\matrix 1.zarr",
 
     "dimred": "pca", # "pca", "spca", "nmf", "umap", "mnf" 
     "n_components": 10,
 
     "clustering": "kmeans", # "kmeans", "hierarchical", "hdbscan", "spectral"
-    "n_clusters":6, 
+    "n_clusters":5, 
 
     "should_remove_matrix_peaks": True,
     "detailed_spectrum_analysis": True
