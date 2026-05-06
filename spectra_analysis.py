@@ -34,7 +34,8 @@ def load_run_results(run_folder: str) -> dict:
 
     # try to find the results CSV (spca, pca, nmf etc)
     for fname in ["spca_results.csv", "pca_results.csv",
-                  "nmf_results.csv", "umap_results.csv"]:
+                  "nmf_results.csv", "umap_results.csv", 
+                  "mnf_results.csv", "nmf_results.csv"]:
         fpath = os.path.join(run_folder, fname)
         if os.path.exists(fpath):
             df = pd.read_csv(fpath)
@@ -586,7 +587,7 @@ if __name__ == "__main__":
     # run_folder = r"C:\Users\i6338212\data\results\hippocampus_PC\OMP_spca10_kmeans4_smoothing\hippocampus_OMP_spca10_kmeans4_smoothing"
     # run_folder = r"C:\Users\i6338212\data\results\liver_PC\OMP1000_pca10_kmeans5\DHB_060326_DHB_Slide_11_50_um_OMP1000_pca10_kmeans5"
     # run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\hippocampus_laptop\OMP_pca10_hierarchical4_label_matrix_smoothing\hippocampus_OMP_pca10_hierarchical4_label_matrix_smoothing"
-    run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\mosaic_hippocampus_theos_comp\OMP_pca10_kmeans4\hippocampus_OMP_pca10_kmeans4"
+    run_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\mosaic_hippocampus_laptop\OMP300_pca10_kmeans4_smoothing_savgol_filtering\mosaic_hippocampus_OMP300_pca10_kmeans4_smoothing_savgol_filtering"
 
     # For raw spectrum deep dive — list of zarr paths to load
     # For mosaic: list all 10 sample zarrs
@@ -668,25 +669,25 @@ def run_cluster_spectrum_analysis_pipeline(params: dict,
               "found — skipping preprocessed spectra.")
 
     # ── RAW SPECTRA (deep dive) ───────────────────────────────────────────────
-    if zarr_paths:
-        print("\n[spectra_analysis] Loading raw spectra from zarr files "
-              "(this may take a few minutes)...")
-        mz_axis, avg_raw = load_raw_average_spectra_from_zarrs(
-            zarr_paths=params["zarr_path"],
-            labels=labels,
-            mask=mask,
-            original_shape=original_shape,
-            is_mosaic=is_mosaic,
-            sample_offset=sample_offset
-        )
+    # if zarr_paths:
+    #     print("\n[spectra_analysis] Loading raw spectra from zarr files "
+    #           "(this may take a few minutes)...")
+    #     mz_axis, avg_raw = load_raw_average_spectra_from_zarrs(
+    #         zarr_paths=params["zarr_path"],
+    #         labels=labels,
+    #         mask=mask,
+    #         original_shape=original_shape,
+    #         is_mosaic=is_mosaic,
+    #         sample_offset=sample_offset
+    #     )
 
-        print("[spectra_analysis] Plotting raw interactive spectra...")
-        plot_raw_spectra_interactive(
-            mz_axis,
-            avg_raw,
-            os.path.join(output_folder, "raw")
-        )
-    else:
-        print("[spectra_analysis] No zarr paths provided — skipping raw spectra.")
+    #     print("[spectra_analysis] Plotting raw interactive spectra...")
+    #     plot_raw_spectra_interactive(
+    #         mz_axis,
+    #         avg_raw,
+    #         os.path.join(output_folder, "raw")
+    #     )
+    # else:
+    #     print("[spectra_analysis] No zarr paths provided — skipping raw spectra.")
 
     print(f"\n[spectra_analysis] All done. Results saved to {run_folder}")

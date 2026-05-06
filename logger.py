@@ -19,11 +19,11 @@ slide_filter = None # None to run all slides
 # results_folder = r"C:\Users\i6338212\data\results"
 results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
 # results_folder = r"C:\Users\i6338212\data\results"
-results_csv = os.path.join(results_folder, "experiment_results.csv")
+results_csv = os.path.join(results_folder, "final_runs.csv")
 
 # batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 # batch_root = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr"
-
+batch_root = r"C:\Ioana\_uni\btr\zarr\hipp_mosaic"
 # reduction_name = "OMP_pca10_k3_no_smoothing"
 
 # run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
@@ -32,35 +32,37 @@ results_csv = os.path.join(results_folder, "experiment_results.csv")
 
 single_params= {
     "batch_mode": False,
-    "tissue": "mosaic_hippocampus",
+    "tissue": "hippocampus",
     "dataset": "hippocampus",
-    "computer": "PC",
+    "computer": "laptop",
     "experiment": "hippocampus_theos_comp",
-    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI Mouse Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    "zarr_path": r"C:\Ioana\_uni\btr\zarr\20260413_L6_C1409_DHB_30um_resample.zarr",
+    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI_Mouse_Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    "zarr_path": r"C:\Ioana\_uni\btr\zarr\hipp_mosaic\hippocampus.zarr",
+    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\20260413_L6_C1409_DHB_30um_resample.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
 
-    "smoothing": "8connect", # None, "any string"
+    "smoothing": "8connectivity", # None, "any string" applies smoothing with the 8 nearest neighbours
 
     # "smoothing": None,
-    "filtering": None, # None, "median", "savgol", "gaussian", "guided"
+    "filtering": "savgol", # None, "median", "savgol", "gaussian", "guided"
     "peak_method": "OMP", # "OMP", "MAD"
     "normalisation": "TIC",
-    "omp_coefs": 700,
+    "omp_coefs": 300,
     "bin_tol": 0.005,
+    "filtering_mz_tol": 0.005, # 0.01 = 1%
     "matrix_ratio_threshold": None, 
     "matrix_zarr_path": None,
 
-    "dimred": "pca", 
+    "dimred": "spca", # "pca", "spca", "nmf", "umap", "mnf" 
     "n_components": 10,
 
-    "clustering": "kmeans",
+    "clustering": "spectral", # "kmeans", "hierarchical", "hdbscan", "spectral"
     "n_clusters":4, 
 
-    "should_remove_matrix_peaks": False,
-    "detailed_spectrum_analysis": False
+    "should_remove_matrix_peaks": True,
+    "detailed_spectrum_analysis": True
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -68,15 +70,17 @@ single_params= {
 def generate_method_name(params):
     """Just the method combo — no dataset. Used as the grouping folder."""
     parts = [
-        params["peak_method"],
+        params["peak_method"] + str(params["omp_coefs"]),
+        f"filtering{params['filtering_mz_tol']}",
         params["dimred"].lower() + str(params["n_components"]),
         params["clustering"].lower() + str(params["n_clusters"]),
+        
     ]
     if params.get("smoothing"):
         parts.append("smoothing")
 
     if params.get("filtering"):
-        parts.append(f"{params['filtering']}_filtering")
+        parts.append(f"{params['filtering']}_spectralfiltering")
     
     return "_".join(parts)
 
@@ -87,7 +91,7 @@ def generate_run_name(params):
 def log_experiment(results_csv, row_dict):
     df_new = pd.DataFrame([row_dict])
 
-    if os.path.exists(results_csv):
+    if os.path.exists(results_csv) and os.path.getsize(results_csv) > 0:
         df_existing = pd.read_csv(results_csv)
         df = pd.concat([df_existing, df_new], ignore_index=True)
     else:
@@ -147,7 +151,7 @@ def run_pipeline(params: dict):
         **params,
 
         # preprocessing
-        "n_features": preprocessing_output["n_features"],
+        **preprocessing_output,
 
         # clustering
         "n_clusters_found": dimensionality_red_output["n_clusters_found"],

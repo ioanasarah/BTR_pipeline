@@ -434,6 +434,14 @@ def run_feature_selection(
     h, w, n_peaks = matrix_raw.shape
     matrix_flat = matrix_raw.reshape(h * w, n_peaks)
 
+    mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
+    # print(f"matrix_flat shape: {matrix_flat.shape}")
+    # print(f"labels shape: {labels.shape}")
+    # print(f"mz_values length: {len(mz_values)}")
+
+    matrix_flat = matrix_flat[mask]
+
+
     if params["should_remove_matrix_peaks"]:
         all_mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
         matrix_peaks = pd.read_csv(f"{run_folder}\\top_peaks_matrix_cluster_{dimensionality_red_output['matrix_cluster_id']}.csv")["m/z"].values
@@ -458,7 +466,7 @@ def run_feature_selection(
         # matrix_flat = matrix_flat[:, keep_indices]   # remove matrix peak columns
         
         mz_values_clean = all_mz_values[keep_indices]
-        matrix_flat = matrix_flat[mask]
+        
         matrix_flat = matrix_flat[:, keep_indices]
 
         
@@ -477,6 +485,7 @@ def run_feature_selection(
         save_path = f"{run_folder}\\filtered_mz_values_no_matrix_peaks.csv"
         pd.DataFrame({"mz": mz_values}).to_csv(save_path, index=False)
         print(f"Filtered m/z values saved to {save_path}")
+
 
     # perform anova on mz values (but without matrix peaks)
     p_values = perform_anova_test(
@@ -507,7 +516,7 @@ def run_feature_selection(
     #     mz_values=mz_values,
     #     name_of_run=name_of_run,
     # )
-
+    # mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
     # RANDOM FOREST
     rf_dict = run_random_forest(
         matrix=matrix_flat,
