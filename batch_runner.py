@@ -75,80 +75,87 @@ def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) 
     
     # LIVER DATASET - 1hnr vs pra
 
+    else:
+        slide_folders = [
+            f for f in os.listdir(batch_root)
+            if os.path.isdir(os.path.join(batch_root, f))
+        ]
 
-    slide_folders = [
-        f for f in os.listdir(batch_root)
-        if os.path.isdir(os.path.join(batch_root, f))
-    ]
+        # filter to one slide if specified
+        if slide_filter:
+            slide_folders = [f for f in slide_folders if slide_filter in f]
+            if not slide_folders:
+                raise ValueError(f"No slide folders matched filter: '{slide_filter}'")
+            print(f"[batch_runner] Slide filter '{slide_filter}' matched: {slide_folders}")
 
-    # filter to one slide if specified
-    if slide_filter:
-        slide_folders = [f for f in slide_folders if slide_filter in f]
-        if not slide_folders:
-            raise ValueError(f"No slide folders matched filter: '{slide_filter}'")
-        print(f"[batch_runner] Slide filter '{slide_filter}' matched: {slide_folders}")
+        # slide_folders = [
+        #     f for f in os.listdir(batch_root)
+        #     if os.path.isdir(os.path.join(batch_root, f))
+        # ]
 
-    # slide_folders = [
-    #     f for f in os.listdir(batch_root)
-    #     if os.path.isdir(os.path.join(batch_root, f))
-    # ]
+        for slide_folder in sorted(slide_folders):
+            slide_path = os.path.join(batch_root, slide_folder)
+            # slide_meta = parse_slide_metadata(slide_folder)
 
-    for slide_folder in sorted(slide_folders):
-        slide_path = os.path.join(batch_root, slide_folder)
-        # slide_meta = parse_slide_metadata(slide_folder)
+            zarr_files = sorted([
+                f for f in os.listdir(slide_path)
+                if f.endswith(".zarr") and os.path.isdir(os.path.join(slide_path, f))
+            ])
 
-        zarr_files = sorted([
-            f for f in os.listdir(slide_path)
-            if f.endswith(".zarr") and os.path.isdir(os.path.join(slide_path, f))
-        ])
-
-        # separate matrix from sample files 
-        matrix_zarrs = [os.path.join(slide_path, f) for f in zarr_files if is_matrix_zarr(f)]
-        sample_zarrs = [f for f in zarr_files if not is_matrix_zarr(f)]
-
-
-        # split samples into pra and 1hnr
-        pra_zarrs = sorted([f for f in sample_zarrs if is_pra_zarr(f)])
-        hnr_zarrs = sorted([f for f in sample_zarrs if not is_pra_zarr(f)])
+            # separate matrix from sample files 
+            matrix_zarrs = [os.path.join(slide_path, f) for f in zarr_files if is_matrix_zarr(f)]
+            sample_zarrs = [f for f in zarr_files if not is_matrix_zarr(f)]
 
 
-        matrix_zarr_path = matrix_zarrs[0] if matrix_zarrs else None
-
-        print(f"[batch_runner] Slide: {slide_folder}") 
-        print(f" pra samples: {pra_zarrs}") 
-        print(f" 1hnr samples: {hnr_zarrs}") 
-        print(f" matrix zarr: {matrix_zarr_path}")
+            # split samples into pra and 1hnr
+            pra_zarrs = sorted([f for f in sample_zarrs if is_pra_zarr(f)])
+            hnr_zarrs = sorted([f for f in sample_zarrs if not is_pra_zarr(f)])
 
 
+            matrix_zarr_path = matrix_zarrs[0] if matrix_zarrs else base_params.get("matrix_zarr_path", None)
+            print(f"[debug] {matrix_zarr_path}")
+
+            matrix_zarrs = [os.path.join(slide_path, f) for f in zarr_files if is_matrix_zarr(f)]
+            print(f"[debug] All zarr files in {slide_folder}: {zarr_files}")
+            print(f"[debug] Matrix zarrs found: {matrix_zarrs}")
 
 
-        # if matrix_zarr_path:
-        #     print(f"[batch_runner] using matrix zarr: {matrix_zarrs[0]}")
-        # else:
-            # print(f"[batch_runner] No matrix zarr found for slide: {slide_folder}")
 
-        # for zarr_file in sample_zarrs:
-        #     sample_name = zarr_file.replace(".zarr", "")
-        #     zarr_path   = os.path.join(slide_path, zarr_file)
+            print(f"[batch_runner] Slide: {slide_folder}") 
+            print(f" pra samples: {pra_zarrs}") 
+            print(f" 1hnr samples: {hnr_zarrs}") 
+            print(f" matrix zarr: {matrix_zarr_path}")
 
-            # Build a param dict for this specific zarr
-        params = { **base_params, # list of full paths, pra first then 1hnr 
-            "batch_mode": True, 
-            "sample_zarr_paths": [os.path.join(slide_path, f) for f in pra_zarrs] + [os.path.join(slide_path, f) for f in hnr_zarrs], 
-            "sample_names": [f.replace(".zarr", "") for f in pra_zarrs] + [f.replace(".zarr", "") for f in hnr_zarrs], 
-            "n_pra": len(pra_zarrs), # so preprocessing knows row split 
-            "matrix_zarr_path": matrix_zarr_path, 
-            "dataset": f"{matrix}_{slide_folder}".replace(" ", "_"), 
-            "slide": slide_folder, 
-            "matrix": matrix, 
-            "sample_name": slide_folder, # used for run_id 
-            }
 
-        # print(f"[batch_runner] matrix_zarr_path for {sample_name}: {matrix_zarr_path}")
-        all_params.append(params)
 
-    print(f"[batch_runner] Found {len(all_params)} zarr files across {len(slide_folders)} slides.")
-    return all_params
+
+            # if matrix_zarr_path:
+            #     print(f"[batch_runner] using matrix zarr: {matrix_zarrs[0]}")
+            # else:
+                # print(f"[batch_runner] No matrix zarr found for slide: {slide_folder}")
+
+            # for zarr_file in sample_zarrs:
+            #     sample_name = zarr_file.replace(".zarr", "")
+            #     zarr_path   = os.path.join(slide_path, zarr_file)
+
+                # Build a param dict for this specific zarr
+            params = { **base_params, # list of full paths, pra first then 1hnr 
+                "batch_mode": True, 
+                "sample_zarr_paths": [os.path.join(slide_path, f) for f in pra_zarrs] + [os.path.join(slide_path, f) for f in hnr_zarrs], 
+                "sample_names": [f.replace(".zarr", "") for f in pra_zarrs] + [f.replace(".zarr", "") for f in hnr_zarrs], 
+                "n_pra": len(pra_zarrs), # so preprocessing knows row split 
+                "matrix_zarr_path": matrix_zarr_path, 
+                "dataset": f"{matrix}_{slide_folder}".replace(" ", "_"), 
+                "slide": slide_folder, 
+                "matrix": matrix, 
+                "sample_name": slide_folder, # used for run_id 
+                }
+
+            # print(f"[batch_runner] matrix_zarr_path for {sample_name}: {matrix_zarr_path}")
+            all_params.append(params)
+
+        print(f"[batch_runner] Found {len(all_params)} zarr files across {len(slide_folders)} slides.")
+        return all_params
 
 
 

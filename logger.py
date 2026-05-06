@@ -54,7 +54,9 @@ single_params= {
     "bin_tol": 0.005,
     "filtering_mz_tol": 0.005, # 0.01 = 1%
     "matrix_ratio_threshold": None, 
-    "matrix_zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\100326 DHB Slide 4 50 um\matrix 1.zarr",
+    # "matrix_zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\100326 DHB Slide 4 50 um\matrix 1.zarr",
+    "matrix_zarr_path": None,
+
 
     "dimred": "pca", # "pca", "spca", "nmf", "umap", "mnf" 
     "n_components": 10,
