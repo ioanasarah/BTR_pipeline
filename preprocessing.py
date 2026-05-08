@@ -1321,8 +1321,8 @@ def preprocess_single_sample(zarr_path: str,
     """
 
     sample_name = os.path.basename(zarr_path).replace(".zarr", "")
-    sample_folder = os.path.join(run_folder, "per_sample", sample_name)
-    os.makedirs(sample_folder, exist_ok=True)
+    # sample_folder = os.path.join(run_folder, "per_sample", sample_name)
+    # os.makedirs(sample_folder, exist_ok=True)
 
     
     spatial_data = reading_data_anndata(zarr_path)

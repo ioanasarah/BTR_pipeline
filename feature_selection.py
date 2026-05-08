@@ -153,8 +153,8 @@ def volcano_plot_plotly(matrix,
     # fig.show()
     # fig.save(f"{results_folder}\\volcano_plot_k2_5x5_smoothing_raw_matrix.html")
     # save figure 
-    fig.write_html(f"{run_folder}\\volcano_plot_{name_of_run}.html")
-    print(f"Volcano plot saved to {run_folder}\\volcano_plot_{name_of_run}.html")
+    fig.write_html(f"{run_folder}\\volcano_plot.html")
+    print(f"Volcano plot saved to {run_folder}\\volcano_plot.html")
 
 def run_random_forest(
                     matrix: np.ndarray,
@@ -208,7 +208,7 @@ def run_random_forest(
     importances_df["rank"] = importances_df.index + 1
    
 #    save importance dataframe 
-    save_path = f"{run_folder}\\rf_feature_importances_{name_of_run}.csv"
+    save_path = f"{run_folder}\\rf_feature_importances.csv"
     top_features = importances_df["mz"].values[:top_n_features]
 
     importances_df.to_csv(save_path, index=False)
@@ -232,7 +232,7 @@ def run_random_forest(
     ax.set_xlabel("Mean Decrease in Importance")
     ax.set_title(f"Top {top_n_features} m/z Features — {name_of_run}")
     plt.tight_layout()
-    plot_path = f"{run_folder}\\rf_top_features_{name_of_run}.png"
+    plot_path = f"{run_folder}\\rf_top_features.png"
     plt.savefig(plot_path, dpi=150)
     plt.close()
     print(f"Feature importance plot saved to {plot_path}")
@@ -268,7 +268,7 @@ def combine_anova_rf(
         on="mz", how="left"
     ).sort_values("importance", ascending=False)
 
-    save_path = f"{run_folder}\\consensus_features_{name_of_run}.csv"
+    save_path = f"{run_folder}\\consensus_features.csv"
     merged.to_csv(save_path, index=False)
     print(f"Consensus features saved to {save_path}")
 
@@ -505,7 +505,7 @@ def run_feature_selection(
             "adjusted_p_value": pvals_corrected,
             "significant_after_fdr": reject
         })
-    anova_results_df.to_csv(f"{run_folder}\\anova_results_{name_of_run}.csv", index=False)
+    anova_results_df.to_csv(f"{run_folder}\\anova_results.csv", index=False)
 
     # VOLCANO PLOT
     # volcano_plot_plotly(

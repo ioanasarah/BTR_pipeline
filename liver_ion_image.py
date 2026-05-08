@@ -5,7 +5,7 @@ import os
 import anndata as ad
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
-batch_root   = r"C:\Users\i6338212\data\spatialdata_zep"
+batch_root   = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarrs\20260413_L6_C1409_DHB_30um_resample.zarr"
 results_folder = r"C:\Users\i6338212\data\results\ion_images"
 os.makedirs(results_folder, exist_ok=True)
 
