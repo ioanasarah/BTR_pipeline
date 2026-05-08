@@ -56,20 +56,20 @@ def collect_batch_params(batch_root: str, slide_filter: str, base_params: dict) 
         if not zarr_paths:
             raise FileNotFoundError(f"No .zarr directories found in batch root: {batch_root}")
         print(f"[batch_runner] Found {len(zarr_paths)} zarr files for tissue '{tissue}' in batch root.")
-        for zarr_path in zarr_paths:
-            print(f"  {os.path.basename(zarr_path)}")
-            sample_name = os.path.basename(zarr_path).replace(".zarr", "")
-            params = {
-            **base_params,
-            "batch_mode": True,
-            "sample_zarr_paths": zarr_paths,                                          
-            "sample_names": [os.path.basename(z).replace(".zarr", "") for z in zarr_paths],
-            "n_pra": len(zarr_paths),                                                
-            "matrix_zarr_path": None,
-            "dataset": f"{matrix}_{os.path.basename(batch_root)}".replace(" ", "_"),
-            "sample_name": os.path.basename(batch_root),
-            }
-            all_params.append(params)
+        # for zarr_path in zarr_paths:
+        # print(f"  {os.path.basename(zarr_path)}")
+        # sample_name = os.path.basename(zarr_path).replace(".zarr", "")
+        params = {
+        **base_params,
+        "batch_mode": True,
+        "sample_zarr_paths": zarr_paths,                                          
+        "sample_names": [os.path.basename(z).replace(".zarr", "") for z in zarr_paths],
+        "n_pra": len(zarr_paths),                                                
+        "matrix_zarr_path": None,
+        "dataset": f"{matrix}_{os.path.basename(batch_root)}".replace(" ", "_"),
+        "sample_name": os.path.basename(batch_root),
+        }
+        all_params.append(params)
         return all_params
 
     

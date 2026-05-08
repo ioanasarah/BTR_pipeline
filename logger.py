@@ -48,10 +48,10 @@ single_params= {
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep",
     "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\mosaic_hippocampus",
 
-    "smoothing": "8connect", # None, "any string" applies smoothing with the 8 nearest neighbours
+    "smoothing": None, # None, "any string" applies smoothing with the 8 nearest neighbours
 
     # "smoothing": None,
-    "filtering": "savgol", # None, "median", "savgol", "gaussian", "guided"
+    "filtering": "gaussian_guided", # None, "median", "savgol", "gaussian", "guided"
     "peak_method": "OMP", # "OMP", "MAD"
     "normalisation": "TIC",
     "omp_coefs": 300,
@@ -62,11 +62,11 @@ single_params= {
     "matrix_zarr_path": None,   
 
 
-    "dimred": "pca", # "pca", "spca", "nmf", "umap", "mnf" 
+    "dimred": "spca", # "pca", "spca", "nmf", "umap", "mnf" 
     "n_components": 10,
 
     "clustering": "kmeans", # "kmeans", "hierarchical", "hdbscan", "spectral"
-    "n_clusters":4, 
+    "n_clusters":5, 
 
     "should_remove_matrix_peaks": True,
     "detailed_spectrum_analysis": True

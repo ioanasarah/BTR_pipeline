@@ -1508,7 +1508,7 @@ def run_preprocessing(params, run_folder):
             filtered_avg_intensity = median_filter_spectrum(filtered_avg_intensity, kernel_size=5)
         elif params.get("filtering") == "savgol":
             filtered_avg_intensity = savgol_filter_spectrum(filtered_avg_intensity, window_length=11, polyorder=3)
-        elif params.get("filtering") == "gaussian":
+        elif params.get("filtering") == "gaussian" or  params.get("filtering") == "gaussian_guided":
             filtered_avg_intensity = gaussian_filter_spectrum(filtered_avg_intensity, sigma=1.0)
 
         if params["peak_method"] == "OMP_advanced":

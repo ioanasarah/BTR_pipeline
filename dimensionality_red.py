@@ -24,12 +24,12 @@ from sklearn.preprocessing import normalize
 from scipy.stats import f_oneway
 from scipy.spatial.distance import cdist
 from scipy.linalg import eigh
-# import cv2
+import cv2
 import statsmodels
 from statsmodels.stats.multitest import multipletests
 import scipy.sparse as sp
 from scipy.sparse import lil_matrix, csr_matrix
-# from scipy.sparse.linalg import eigsh
+from scipy.sparse.linalg import eigsh
 
 
 
@@ -1627,7 +1627,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
 
 
 
-    if params.get("filtering") == "guided":
+    if params.get("filtering") == "guided" or params.get("filtering") == "savgol_guided" or params.get("filtering") == "gaussian_guided" or params.get("filtering") == "median_guided":
         height, width = original_shape
         embedding = guided_filter_embedding(
             embedding, 
