@@ -16,14 +16,14 @@ slide_filter = None # None to run all slides
 #  DHB Slide 4 50 um
 
 
-results_folder = r"C:\Users\i6338212\data\results"
-# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
 # results_folder = r"C:\Users\i6338212\data\results"
-results_csv = os.path.join(results_folder, "final_runs_PC.csv")
+results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
+# results_folder = r"C:\Users\i6338212\data\results"
+results_csv = os.path.join(results_folder, "final_runs.csv")
 
 # batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 # batch_root = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr"
-batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
+# batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 # reduction_name = "OMP_pca10_k3_no_smoothing"
 
 # run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
@@ -31,26 +31,21 @@ batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 
 
 single_params= {
-    "batch_mode": True,
-    "tissue": "liver_mosaic",
-    "dataset": "liver_mosaic",
-    "computer": "PC",
-    "experiment": "liver_mosaic_PC",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI_Mouse_Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\hipp_mosaic\hippocampus.zarr",
+    "zarr_path": r"C:\Ioana\_uni\btr\zarr\hipp_mosaic\hippocampus.zarr",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\20260413_L6_C1409_DHB_30um_resample.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
-    "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep",
+    # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep",
 
-    "smoothing": None, # None, "any string" applies smoothing with the 8 nearest neighbours
+    "smoothing": "8connect", # None, "any string" applies smoothing with the 8 nearest neighbours
 
     # "smoothing": None,
-    "filtering": "savgol", # None, "median", "savgol", "gaussian", "guided"
+    "filtering": "savgol", # None, "median", "savgol", "gaussian", "guided", "savgol_guided"
     "peak_method": "OMP", # "OMP", "MAD"
     "normalisation": "TIC",
-    "omp_coefs": 700,
+    "omp_coefs": 300,
     "bin_tol": 0.005,
     "filtering_mz_tol": 0.005, # 0.01 = 1%
     "matrix_ratio_threshold": None, 

@@ -1331,7 +1331,6 @@ def preprocess_single_sample(zarr_path: str,
     # DEFINE FILTERING
     if params.get("filtering") == "median":
         avg_intensity = median_filter_spectrum(avg_intensity, kernel_size=5)
-    elif params.get("filtering") == "savgol":
         avg_intensity = savgol_filter_spectrum(avg_intensity, window_length=11, polyorder=3)
     elif params.get("filtering") == "gaussian":
         avg_intensity = gaussian_filter_spectrum(avg_intensity, sigma=1.0)
