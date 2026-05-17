@@ -33,23 +33,28 @@ def reconstruct_and_plot_ion_images(
     plt.show()
 
 
-run_folder = r"C:\Users\i6338212\data\results\liver_mosaic_PC\OMP700_filtering0.005_spca10_hierarchical6_savgol_spectralfiltering\DHB_060326_DHB_Slide_11_50_um_OMP700_filtering0.005_spca10_hierarchical6_savgol_spectralfiltering"
-reduction_name = "DHB_060326_DHB_Slide_11_50_um_OMP700_filtering0.005_spca10_hierarchical6_savgol_spectralfiltering"
+# run_folder = r"C:\Users\i6338212\data\results\liver_mosaic_PC\OMP700_filtering0.005_spca10_hierarchical6_savgol_spectralfiltering\DHB_060326_DHB_Slide_11_50_um_OMP700_filtering0.005_spca10_hierarchical6_savgol_spectralfiltering"
+
+
+run_folder = r"C:\Users\i6338212\data\results\hippocampus_mosaic_PC\OMP300_filtering0.005_spca10_kmeans5_gaussian_spectralfiltering"
+
+
+reduction_name = "OMP300_filtering0.005_spca10_kmeans5_gaussian_spectralfiltering"
 matrix = np.load(f"{run_folder}\\matrix.npy")
 # mask = np.load(f"{run_folder}\\mask.npy")
 labels = pd.read_csv(f"{run_folder}\\spca_results.csv").iloc[:, -1]  # assuming last column is 'cluster'
-spatial_map = np.load(f"{run_folder}\\spatial_map_matrix_{reduction_name}.npy")
+spatial_map = np.load(f"{run_folder}\\spatial_map_matrix.npy")
 matrix_scaled = np.load(f"{run_folder}\\matrix_scaled.npy")
 mz_values = pd.read_csv(f"{run_folder}\\filtered_mz_values.csv")["mz"].values
 mask = np.load(f"{run_folder}\\mask.npy")
 original_shape = np.load(f"{run_folder}\\original_shape.npy")
-name_of_run = "OMP700_filtering0.005_spca10_hierarchical6_savgol_spectralfiltering"
+# name_of_run = "OMP300_filtering0.005_spca10_kmeans5_gaussian_spectralfiltering"
 
 
 h, w, n_peaks = matrix.shape
 matrix_flat = matrix.reshape(h * w, n_peaks)
 
-feature = 377.13
+feature = 773.644
 
 
 reconstruct_and_plot_ion_images(

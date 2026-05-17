@@ -1727,7 +1727,7 @@ def run_dimensionality_reduction(file_path: str, params: dict, run_folder: str):
 
 
 
-    if params.get("filtering") == "guided" or params.get("filtering") == "savgol_guided":
+    if params.get("filtering") == "guided" or params.get("filtering") == "savgol_guided" or params.get("filtering") == "gaussian_guided" or params.get("filtering") == "median_guided":
         height, width = original_shape
         embedding = guided_filter_embedding(
             embedding, 
