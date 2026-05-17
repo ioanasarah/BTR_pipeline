@@ -15,31 +15,25 @@ from spectra_analysis import run_cluster_spectrum_analysis_pipeline
 slide_filter = None # None to run all slides
 #  DHB Slide 4 50 um
 
-
+# PATH TO FOLDER WHERE ALL RESULTS WILL BE SAVED
 # results_folder = r"C:\Users\i6338212\data\results"
 results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
 # results_folder = r"C:\Users\i6338212\data\results"
 results_csv = os.path.join(results_folder, "final_runs_PC.csv")
 
+
+# PATH TO FOLDER CONTAINING ZARR FILES FOR BATCH MODE
 # batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 batch_root = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\mosaic_hippocampus"
 # batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
-# reduction_name = "OMP_pca10_k3_no_smoothing"
-
-# run_folder = os.path.join(results_folder, preprocessing_run_name, reduction_name)
-# os.makedirs(run_folder, exist_ok=True)
 
 
-
-# poetry run python logger.py
 
 single_params= {
-    "batch_mode": False,
-    "tissue": "mouse_brain",
-    "dataset": "mouse_brain",
-    "computer": "laptop",
-    "experiment": "hippocampus_mosaic_PC",
-    "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI_Mouse_Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    "batch_mode": False, # False to run a single experiment, True to run all slides in batch_root 
+    "dataset": "mouse_brain", # name of dataset, e.g. "mouse_brain", "hippocampus_mosaic", "DHB_slide4_50um"
+    "computer": "laptop", # "laptop", "desktop", "server" - just for logging purposes
+    "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI_Mouse_Brain.zarr\MALDI-MSI Mouse Brain.zarr", # path to zarr file for single run
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\hipp_mosaic\hippocampus.zarr",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\20260413_L6_C1409_DHB_30um_resample.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
