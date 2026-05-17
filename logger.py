@@ -19,10 +19,10 @@ slide_filter = None # None to run all slides
 # results_folder = r"C:\Users\i6338212\data\results"
 results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results"
 # results_folder = r"C:\Users\i6338212\data\results"
-results_csv = os.path.join(results_folder, "final_runs.csv")
+results_csv = os.path.join(results_folder, "final_runs_PC.csv")
 
 # batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
-# batch_root = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarr"
+batch_root = r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\mosaic_hippocampus"
 # batch_root = r"C:\Users\i6338212\data\spatialdata_zep"
 # reduction_name = "OMP_pca10_k3_no_smoothing"
 
@@ -30,23 +30,32 @@ results_csv = os.path.join(results_folder, "final_runs.csv")
 # os.makedirs(run_folder, exist_ok=True)
 
 
+
+# poetry run python logger.py
+
 single_params= {
-    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI_Mouse_Brain.zarr\MALDI-MSI Mouse Brain.zarr",
-    "zarr_path": r"C:\Ioana\_uni\btr\zarr\hipp_mosaic\hippocampus.zarr",
+    "batch_mode": False,
+    "tissue": "mouse_brain",
+    "dataset": "mouse_brain",
+    "computer": "laptop",
+    "experiment": "hippocampus_mosaic_PC",
+    "zarr_path": r"C:\Ioana\_uni\btr\zarr\MALDI-MSI_Mouse_Brain.zarr\MALDI-MSI Mouse Brain.zarr",
+    # "zarr_path": r"C:\Ioana\_uni\btr\zarr\hipp_mosaic\hippocampus.zarr",
     # "zarr_path": r"C:\Ioana\_uni\btr\zarr\20260413_L6_C1409_DHB_30um_resample.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\zarr_files1\20260413_L6_C1409_DHB_30um_new.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\Ioana Test Data\Data\hippocampus.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\060326 DHB Slide 11 50 um\1 1hnr.zarr",
     # "zarr_path": r"C:\Users\i6338212\data\spatialdata_zep",
+    # "zarr_path": r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\mosaic_hippocampus",
 
     "smoothing": "8connect", # None, "any string" applies smoothing with the 8 nearest neighbours
 
     # "smoothing": None,
-    "filtering": "savgol", # None, "median", "savgol", "gaussian", "guided", "savgol_guided"
+    "filtering": "savgol_guided", # None, "median", "savgol", "gaussian", "guided", "savgol_guided"
     "peak_method": "OMP", # "OMP", "MAD"
     "normalisation": "TIC",
     "omp_coefs": 300,
-    "bin_tol": 0.005,
+    "bin_tol": 0.01,
     "filtering_mz_tol": 0.005, # 0.01 = 1%
     "matrix_ratio_threshold": None, 
     # "matrix_zarr_path": r"C:\Users\i6338212\data\spatialdata_zep\100326 DHB Slide 4 50 um\matrix 1.zarr",
@@ -59,8 +68,8 @@ single_params= {
     "clustering": "kmeans", # "kmeans", "hierarchical", "hdbscan", "spectral"
     "n_clusters":4, 
 
-    "should_remove_matrix_peaks": True,
-    "detailed_spectrum_analysis": True
+    "should_remove_matrix_peaks": False,
+    "detailed_spectrum_analysis": False
 
     # "run_id": "OMP_pca10_k3_no_smoothing",
 }
@@ -106,7 +115,7 @@ def run_pipeline(params: dict):
             results_folder,
             f"{params['tissue']}_{params['computer']}",
             generate_method_name(params),
-            generate_run_name(params), 
+            # generate_run_name(params), 
         )
     os.makedirs(run_folder, exist_ok=True)
 

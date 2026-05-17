@@ -2,8 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import spatialdata as sd
 
-adata = list(sd.read_zarr(r"C:\Ioana\_uni\btr\zarr\MALDI-MSI_Mouse_Brain.zarr\MALDI-MSI Mouse Brain.zarr").tables.values())[0]
-results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop"
+adata = list(sd.read_zarr(r"C:\Users\i6338212\data\datasets\mosaic_hippocampus\Slide1_zarrs\20260413_L6_C2601_DHB_30um_resample.zarr").tables.values())[0]
+# results_folder = r"C:\Ioana\_uni\BTR_pipeline_code\results\xenium_laptop"
+results_folder = r"C:\Users\i6338212\data\results\hippocampus_mosaic_PC"
 original_shape = (adata.obs["y"].max() + 1, adata.obs["x"].max() + 1)
 height, width = original_shape
 tic = np.array(adata.X.sum(axis=1)).flatten()
@@ -14,7 +15,14 @@ tic_image[y * width + x] = tic
 plt.imshow(tic_image.reshape(height, width), cmap="hot")
 plt.colorbar()
 plt.title("TIC image")
-plt.savefig(f"{results_folder}/tic_image.png", dpi=150)
+plt.savefig(f"{results_folder}/tic_image_20260413_L6_C2601_DHB_30um_resample.png", dpi=150)
+
+
+#   poetry run python quick_ion_image.py
+
+
+
+
 
 # import anndata as ad
 # import os

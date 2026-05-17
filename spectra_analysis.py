@@ -548,7 +548,7 @@ def run_cluster_spectrum_analysis(run_folder: str,
         plot_preprocessed_spectra(
             avg_preprocessed,
             filtered_mz,
-            os.path.join(output_folder, "preprocessed")
+            output_folder
         )
     else:
         print("[main] WARNING: matrix_raw.npy or filtered_mz_values.csv not "

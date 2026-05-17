@@ -103,7 +103,7 @@ if __name__ == "__main__":
     print("Clustering metrics saved to file. Total time: {:.2f} seconds".format(time.perf_counter() - start_time))
 
 def run_clustering_metrics(dimensionality_red_output, run_folder, params):
-    spatial_map_file_path = f"{run_folder}\\spatial_map_matrix_{params['run_id']}.npy"
+    spatial_map_file_path = f"{run_folder}\\spatial_map_matrix.npy"
     spatial_map = np.load(spatial_map_file_path)
     X = dimensionality_red_output["embedding"]
     labels = dimensionality_red_output["labels"]
